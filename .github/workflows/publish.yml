@@ -19,37 +19,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22.x'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Upgrade npm for OIDC support
-        run: npm install -g npm@latest
-
-      - name: Clean .npmrc for OIDC
+        with: { node-version: '22.x', registry-url: 'https://registry.npmjs.org' }
+      - name: Prepare npm for OIDC
         run: |
-          if [ -n "$NPM_CONFIG_USERCONFIG" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then
-            sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG"
-          fi
-
+          npm install -g npm@latest
+          if [ -n "$NPM_CONFIG_USERCONFIG" ] && [ -f "$NPM_CONFIG_USERCONFIG" ]; then sed -i '/_authToken/d' "$NPM_CONFIG_USERCONFIG"; fi
       - name: Install dependencies
         run: npm ci || npm install
-
       - name: Check version
         id: check
         run: |
           VERSION=$(node -p "require('./package.json').version")
           CODE=$(curl -s -o /dev/null -w '%{http_code}' "https://registry.npmjs.org/mega-index-map/${VERSION}")
           echo "exists=$([ "$CODE" = "200" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
       - name: Publish to npm
         if: steps.check.outputs.exists == 'false'
         run: npm publish --access public --registry https://registry.npmjs.org --provenance=false
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Build release changelog
         id: changelog
         if: steps.check.outputs.exists == 'false'
@@ -59,11 +47,7 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
           SINCE=$([ -n "$PREV_TAG" ] && git log -1 --format=%ct "$PREV_TAG" || echo "0")
-          gh pr list --state merged --base main --limit 500 --json number,title,mergedAt \
-            | jq -r --argjson since "${SINCE:-0}" \
-              '[ .[] | select($since == 0 or (.mergedAt | fromdateiso8601) > $since) ]
-               | sort_by(.number)
-               | .[] | "- \(.title) (#\(.number))"' > pr_lines.md
+          gh pr list --state merged --base main --limit 500 --json number,title,mergedAt | jq -r --argjson since "${SINCE:-0}" '[ .[] | select($since == 0 or (.mergedAt | fromdateiso8601) > $since) ] | sort_by(.number) | .[] | "- \(.title) (#\(.number))"' > pr_lines.md
           [ ! -s pr_lines.md ] && echo "- No merged PRs for this release" > pr_lines.md
           {
             echo "## What's Changed"
@@ -75,7 +59,6 @@ jobs:
             fi
           } > release_notes.md
           cat release_notes.md
-
       - name: Create GitHub Release
         if: steps.check.outputs.exists == 'false'
         env:
@@ -83,7 +66,4 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version")
           gh release view "v${VERSION}" >/dev/null 2>&1 && exit 0
-          gh release create "v${VERSION}" \
-            --target "${{ github.sha }}" \
-            --title "v${VERSION}" \
-            --notes-file release_notes.md
+          gh release create "v${VERSION}" --target "${{ github.sha }}" --title "v${VERSION}" --notes-file release_notes.md

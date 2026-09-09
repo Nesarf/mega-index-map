@@ -1,13 +1,13 @@
-# 依赖与缓存
+# deps & caches
 node_modules/
 
-# 日志与临时
+# logs & temp
 *.log
 *.tmp
 
-# 本地验证临时脚本
+# local verify scratch
 lib/_*.mjs
 
-# 系统文件
+# system
 .DS_Store
 Thumbs.db
