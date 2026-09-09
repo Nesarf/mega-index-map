@@ -40,7 +40,12 @@ mega-index-map/
 ├── LICENSE                  # MIT
 ├── cordis.patch.yml         # plugin mount declaration
 ├── lib/
-│   └── index.js             # host-side plugin (Library storage/retrieval + tools)
+│   ├── core.mjs             # cross-harness shared core (pure Node, no DSH dep)
+│   └── index.js             # DSH host-side plugin (imports core.mjs)
+├── mcp/
+│   └── index.mjs            # MCP stdio server (9 tools, cross-harness)
+├── cli/
+│   └── index.mjs            # command-line driver
 ├── skills/
 │   └── mega-index/
 │       └── SKILL.md         # agent recording/query skill
@@ -110,6 +115,37 @@ New or any conversation uses `library_query`:
 ### 3. Rebuild index
 
 `library_index`: dedupe (type+name+source) + sort by time, rewrite `index.json`.
+
+## Cross-harness (MCP / CLI)
+
+Besides the DSH plugin, `mega-index-map` ships a **cross-harness** version so any agent framework
+that supports MCP (Model Context Protocol) — Claude Code, Cursor, opencode, GitHub Copilot CLI —
+can use the same Library. Both share the pure-Node core (`lib/core.mjs`).
+
+### MCP server
+
+Exposes the same 9 tools over MCP stdio. Register in any MCP client:
+
+```json
+{ "mcpServers": { "mega-index-map": { "command": "node", "args": ["./mcp/index.mjs"] } } }
+```
+
+Or run directly: `node ./mcp/index.mjs`.
+
+### CLI
+
+Command-line driver (same tools, no MCP runtime needed):
+
+```bash
+# via package bin (npm i -g mega-index-map), or:
+node ./cli/index.mjs library_encoding
+node ./cli/index.mjs library_record --type tool --name foo --source bar
+node ./cli/index.mjs library_query --query ffmpeg
+node ./cli/index.mjs sniff "path/to/file"
+```
+
+The library lives at `$DSH_HOME/library` (default `~/.dsh/library`) for DSH, MCP, and CLI alike, so
+all three share one index.
 
 ## Library files
 
