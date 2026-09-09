@@ -9,12 +9,26 @@
     "workspace",
     "library",
     "interop",
-    "knowledge-base"
+    "knowledge-base",
+    "mcp",
+    "model-context-protocol",
+    "cli"
   ],
   "type": "module",
   "main": "lib/index.js",
+  "bin": {
+    "mega-index-map": "./cli/index.mjs"
+  },
+  "mcp": {
+    "server": {
+      "command": "node",
+      "args": ["./mcp/index.mjs"]
+    }
+  },
   "files": [
     "lib",
+    "mcp",
+    "cli",
     "skills",
     "cordis.patch.yml",
     "README.md",
@@ -26,7 +40,12 @@
     }
   },
   "scripts": {
-    "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\""
+    "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\"",
+    "mcp": "node ./mcp/index.mjs",
+    "cli": "node ./cli/index.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-tools": "*"
