@@ -1,0 +1,24 @@
+# ============================================================================
+# mega-index-map — DSH bundle patch
+# ============================================================================
+# This is the plugin's mount declaration. At startup DSH stacks plugin patches
+# by bundle layer; this file inserts mega-index-map into the config tree and
+# registers the cross-workspace Library tools.
+#
+# Install (no manual copying or profile-patch editing needed):
+#   dsh plugin --profile web add github:Nesarf/mega-index-map
+# Or local dev install:
+#   dsh plugin --profile web add link:<absolute-path-to-this-directory>
+#
+# Effect:
+#   - Provides the library storage/retrieval service and the library_record /
+#     library_index / library_query (plus detect/sniff/decrypt/export) tools;
+#   - Mounts the library tools onto coding agents (coordinating with the
+#     workspace-map skill) so agents proactively record objects into
+#     $DSH_HOME/library for existing/new conversations to query.
+# ============================================================================
+
+- insert:
+    - id: mega-index-map
+      name: mega-index-map
+      config: {}

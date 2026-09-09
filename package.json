@@ -1,0 +1,46 @@
+{
+  "name": "mega-index-map",
+  "version": "0.1.0",
+  "description": "DSH cross-workspace interop Library: let DeepSeek Harness proactively record each workspace's files, tools, environments, products, knowledge base, and work records into an independent library, for existing and new conversations to index, use, research, and learn.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "workspace",
+    "library",
+    "interop",
+    "knowledge-base"
+  ],
+  "type": "module",
+  "main": "lib/index.js",
+  "files": [
+    "lib",
+    "skills",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\""
+  },
+  "peerDependencies": {
+    "@deepseek-ai/dsh-tools": "*"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nesarf/mega-index-map.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nesarf/mega-index-map/issues"
+  },
+  "homepage": "https://github.com/Nesarf/mega-index-map#readme",
+  "engines": {
+    "node": ">=18"
+  }
+}
