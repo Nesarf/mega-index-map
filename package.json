@@ -1,7 +1,7 @@
 {
   "name": "mega-index-map",
   "version": "0.1.0",
-  "description": "DSH cross-workspace interop Library: let DeepSeek Harness proactively record each workspace's files, tools, environments, products, knowledge base, and work records into an independent library, for existing and new conversations to index, use, research, and learn.",
+  "description": "Cross-workspace interop Library: record, index and search files, tools, environments, knowledge and work records across workspaces for reuse.",
   "keywords": [
     "dsh",
     "dsh-plugin",
