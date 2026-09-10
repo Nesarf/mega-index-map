@@ -1,6 +1,6 @@
 {
   "name": "mega-index-map",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Cross-workspace interop Library: record, index and search files, tools, environments, knowledge and work records across workspaces for reuse.",
   "keywords": [
     "dsh",
