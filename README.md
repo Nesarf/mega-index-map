@@ -28,4 +28,8 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
 - The library lives at `$DSH_HOME/library` (default `~/.dsh/library`). Additions learned on this
   machine live beside it and never override the built-in tables.
 - Work stays local: the plugin performs no network I/O and transmits nothing on its own.
+- Measured cost is linear and small: at 5,000 objects a query takes about 13 ms, a record 19 ms, a
+  rebuild 26 ms (index file around 2.3 MB). Back up or migrate with `library_export`.
+- One writer at a time: the index is a single JSON file, so point several harnesses at one library
+  only if last-write-wins is acceptable.
 - MIT License. See [LICENSE](LICENSE).
