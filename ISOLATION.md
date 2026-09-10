@@ -1,8 +1,9 @@
 # Isolation between this package and the sibling build
 
-This repository (`mega-index-map`, the DSH plugin) and the sibling cross-harness build
-(`sibling-checkout`, an MCP server plus CLI) share one lineage but must never touch each
-other's files. The rule is two-way and absolute:
+This repository (`mega-index-map`, the DSH plugin) and a sibling cross-harness build (an MCP server
+plus CLI) share one lineage but must never touch each other's files. The sibling checkout is declared
+locally - `MEGA_INDEX_SIBLING`, or `.isolation.local.json` beside this checkout, which never ships - so
+no shipped file has to name it. The rule is two-way and absolute:
 
 1. **This repository is read-only with respect to the sibling.** Nothing here may create, modify,
    move or delete anything under the sibling tree - not at build time, not at run time, not from a
@@ -19,13 +20,16 @@ having two.
 
 - `scripts/check-isolation.mjs` - static rules, run by `npm run check` and therefore by CI on every
   push: no write-capable call in this repository may name the sibling or carry a hardcoded absolute
-  path as its target, and this repository may not spawn a program pointed at the sibling. When the
-  sibling tree is present it is scanned the same way, in the opposite direction.
+  path as its target, and this repository may not spawn a program pointed at the sibling. The guard is
+  built from the locally declared path, so it bites on the machine that has the sibling without the name
+  appearing in shipped source. When the sibling tree is present it is scanned the same way, in the
+  opposite direction.
 - Witness mode, for the read-only claim itself: `node scripts/check-isolation.mjs snapshot` records
-  hashes of this repository, of the sibling tree and of the real `$DSH_HOME/library/index.json`;
-  `node scripts/check-isolation.mjs verify` re-hashes and fails if a single byte moved. Run the
-  snapshot before a test or proofreading session and verify after it: a clean verify is the evidence
-  that the session wrote to neither tree and did not disturb the user's own library.
+  hashes of this repository, of the sibling tree (when declared) and of the real
+  `$DSH_HOME/library/index.json`; `node scripts/check-isolation.mjs verify` re-hashes and fails if a
+  single byte moved. Run the snapshot before a test or proofreading session and verify after it: a clean
+  verify is the evidence that the session wrote to neither tree and did not disturb the user's own
+  library.
 - The reasoning behind each deliberate non-interaction is recorded in `PROOFREADING.md`.
 
 ## What this repository may write

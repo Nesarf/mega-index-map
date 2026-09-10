@@ -35,7 +35,7 @@ function matchFrom(s, openIdx) {
 
 function walk(dir, out = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (["node_modules", ".git"].includes(e.name)) continue;
+    if (["node_modules", ".git", ".isolation.local.json"].includes(e.name)) continue;
     const p = path.join(dir, e.name);
     if (e.isDirectory()) walk(p, out); else out.push(p);
   }

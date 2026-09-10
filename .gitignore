@@ -11,3 +11,6 @@ lib/_*.mjs
 # system
 .DS_Store
 Thumbs.db
+
+# Local, machine-only isolation declaration (see ISOLATION.md) - never shipped.
+.isolation.local.json

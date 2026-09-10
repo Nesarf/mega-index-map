@@ -21,10 +21,27 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-// A sibling checkout beside this one, by convention - no machine-specific absolute path. Point
-// MEGA_INDEX_SIBLING at it when it lives elsewhere; the checks below compare the two trees either way.
-const SIBLING = process.env.MEGA_INDEX_SIBLING || path.join(path.dirname(ROOT), "sibling-checkout");
-const SIBLING_NAME = /sibling-checkout|sibling-checkout/i;
+// The sibling checkout is declared locally and is never named in this script. Point MEGA_INDEX_SIBLING at
+// it, or put {"sibling": "<path>"} in .isolation.local.json beside this checkout - a file that stays on
+// the machine and is not shipped. With nothing declared, the sibling-direction rules report that and
+// skip; every one-direction rule above still runs, so this guard is never a no-op.
+const LOCAL_DECLARATION = path.join(ROOT, ".isolation.local.json");
+function declaredSibling() {
+  const env = String(process.env.MEGA_INDEX_SIBLING || "").trim();
+  if (env) return env;
+  try {
+    const j = JSON.parse(fs.readFileSync(LOCAL_DECLARATION, "utf8"));
+    if (j && typeof j.sibling === "string" && j.sibling.trim()) return j.sibling.trim();
+  } catch { /* no local declaration */ }
+  return null;
+}
+const SIBLING = declaredSibling();
+// The guard that catches a write-capable call naming the sibling is built from the declared path, so the
+// name lives in local configuration rather than in shipped source.
+const SIBLING_NAME = SIBLING
+  ? new RegExp(path.basename(SIBLING).replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i")
+  : null;
+const namesSibling = (line) => Boolean(SIBLING_NAME && SIBLING_NAME.test(line));
 const DEFAULT_MANIFEST = path.join(os.tmpdir(), "mega-index-map-isolation.json");
 
 const WRITE_CALLS = /\b(fs\.)?(writeFileSync|writeFile|appendFileSync|createWriteStream|mkdirSync|mkdir|rmSync|rm|rmdirSync|unlinkSync|unlink|renameSync|rename|copyFileSync|copyFile|truncateSync|chmodSync|utimesSync)\s*\(/;
@@ -72,10 +89,10 @@ function scanStatic() {
       if (writes) writeCalls++;
       if (spawns) spawnCalls++;
       if (!isComment(line)) {
-        if (writes && SIBLING_NAME.test(line)) {
+        if (writes && namesSibling(line)) {
           problems.push(`${where}: a write-capable call names the sibling build: ${line.trim().slice(0, 100)}`);
         }
-        if (spawns && SIBLING_NAME.test(line)) {
+        if (spawns && namesSibling(line)) {
           problems.push(`${where}: a spawned program is pointed at the sibling build: ${line.trim().slice(0, 100)}`);
         }
       }
@@ -89,7 +106,7 @@ function scanStatic() {
 
   // --- direction 2: the sibling must not write into this repository ---
   let siblingScanned = 0;
-  if (fs.existsSync(SIBLING)) {
+  if (SIBLING && fs.existsSync(SIBLING)) {
     for (const f of walk(SIBLING)) {
       const rel = path.relative(SIBLING, f).replace(/\\/g, "/");
       const lines = fs.readFileSync(f, "utf8").split("\n");
@@ -113,7 +130,7 @@ function scanStatic() {
     process.exit(1);
   }
   console.log(`isolation check OK - ${here.length} file(s) here (${writeCalls} write call(s), ${spawnCalls} spawn call(s)), ` +
-    `${siblingScanned} sibling file(s) scanned.`);
+    (SIBLING ? `${siblingScanned} sibling file(s) scanned.` : "no sibling declared on this machine, so the two-way half is skipped."));
   console.log("no write path into the sibling, no hardcoded write target, no spawn pointed across the boundary.");
 }
 
@@ -129,7 +146,7 @@ function hashManifest() {
     }
   };
   add("mega", ROOT);
-  add("sibling", SIBLING);
+  if (SIBLING) add("sibling", SIBLING);
   const lib = path.join(process.env.DSH_HOME || path.join(os.homedir(), ".dsh"), "library", "index.json");
   if (fs.existsSync(lib)) entries["real-library/index.json"] = createHash("sha256").update(fs.readFileSync(lib)).digest("hex").slice(0, 16);
   return entries;
@@ -137,7 +154,7 @@ function hashManifest() {
 
 function cmdSnapshot(manifestPath) {
   const entries = hashManifest();
-  fs.writeFileSync(manifestPath, JSON.stringify({ at: new Date().toISOString(), roots: { mega: ROOT, sibling: SIBLING }, entries }, null, 2), "utf8");
+  fs.writeFileSync(manifestPath, JSON.stringify({ at: new Date().toISOString(), roots: { mega: ROOT, sibling: SIBLING || null }, entries }, null, 2), "utf8");
   console.log(`isolation snapshot written: ${manifestPath} (${Object.keys(entries).length} file(s))`);
 }
 

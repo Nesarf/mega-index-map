@@ -1,7 +1,7 @@
 # Third-party proofreading
 
-This repository is the DSH plugin edition. A sibling cross-harness edition,
-sibling-checkout, shares the same lineage as an MCP server plus a CLI. This repository is
+This repository is the DSH plugin edition. A sibling cross-harness edition shares the same lineage as
+an MCP server plus a CLI; it is declared locally and no shipped file names it. This repository is
 used as a read-only reference when proofreading that sibling, and this file is the durable
 record of each pass, because the sibling has no version control of its own.
 
@@ -16,7 +16,7 @@ claim below is backed by a re-runnable command: `npm run check` for the ASCII an
 invariants, plus the machine-local suites named per round, whose assertions are unchanged
 copies of this repository's own suites.
 
-## Round 1 - sibling-checkout, 2026-09-11
+## Round 1 - the sibling cross-harness edition, 2026-09-11
 
 Two passes: portability and key-file permissions first, then the self-extending format library
 and its documentation.

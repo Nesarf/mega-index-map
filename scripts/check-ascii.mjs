@@ -16,6 +16,8 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "..");
 const SKIP_DIRS = new Set(["node_modules", ".git"]);
+// A local, machine-only declaration is not shipped content (see ISOLATION.md), so it is not scanned.
+const SKIP_FILES = new Set([".isolation.local.json"]);
 const ALLOWED_FILE = path.join(ROOT, "lib", "index.js");
 const LOCALIZED_DOC = path.join(ROOT, "README.zh-CN.md");
 const isHan = (c) => /\p{Script=Han}/u.test(c);
@@ -34,7 +36,7 @@ function allowedRange(file) {
 
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (SKIP_DIRS.has(entry.name)) continue;
+    if (SKIP_DIRS.has(entry.name) || SKIP_FILES.has(entry.name)) continue;
     const p = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(p, out);
     else out.push(p);
