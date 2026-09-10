@@ -9,7 +9,8 @@ search and reuse them.
 - `library_record` - record an object (change detection routes verify/confirm)
 - `library_index` - rebuild/dedupe/sort the library, report conflicts
 - `library_query` - search by keyword/type/tags, cursor pagination
-- `library_detect` - scan and register this machine's tools/environments
+- `library_detect` - scan and register this machine's tools/environments (the built-in seed list is
+  the maintainer's layout: paths that do not exist are skipped, and `propose`/`add` seed your own)
 - `library_sniff` - identify a file by its header bytes (108 signatures), independent of extension
 - `library_format` - extend this machine's format library: `list` `scan` `learn` `add` `remove` `deps` `draft` `report` `deliver` `unseal`
 - `library_decrypt` - read back an isolated sensitive object on request

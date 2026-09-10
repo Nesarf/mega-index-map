@@ -74,7 +74,7 @@ jobs:
             echo "Cross-workspace interop Library for DeepSeek Harness: record, index and search files,"
             echo "tools, environments, knowledge and work records across workspaces - plugin bundle, no build step."
             echo
-            echo "Install: \`dsh plugin --profile web add github:Nesarf/mega-index-map\`"
+            echo "Install: \`dsh plugin --profile web add github:${GITHUB_REPOSITORY}\`"
             echo
             echo "## What's Changed"
             echo
