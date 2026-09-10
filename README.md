@@ -11,7 +11,7 @@ environments, products, knowledge, work records - into an independent library un
 - `library_query` - search (keyword/type/tags, cursor pagination)
 - `library_detect` - scan & register machine tools/environments (built-in list + this machine's local candidate pack); `list`/`add`/`remove`/`propose` manage the pack
 - `library_sniff` - true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory for mismatches
-- `library_format` - personalise *this install's* format library: `scan` proposes the types this machine has that the library cannot identify; `learn`/`add` register them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`; `remove` drops one; `deps` reports which formats reference which other formats (extensions only, DLL names opt-in); `draft` writes a reviewable checklist (optionally keeping the raw context locally, encrypted); `report` builds a small contribution archive from a directory or from the draft items **you** select, and `unseal` reopens a sealed layer with your own passphrase
+- `library_format` - personalise *this install's* format library: `scan` proposes the types this machine has that the library cannot identify; `learn`/`add` register them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`; `remove` drops one; `deps` reports which formats reference which other formats (extensions only, DLL names opt-in); `draft` writes a reviewable checklist (optionally keeping the raw context locally, encrypted); `report` builds a small contribution archive from a directory or from the draft items **you** select; `deliver` shows such an archive in the platform's own window (a native dialog: preview + Send by e-mail / Save a copy / Open folder / Delete report); `unseal` reopens a sealed layer with your own passphrase
 - `library_decrypt` - manually decrypt a sensitive object
 - `library_export` - export to JSON/NDJSON
 - `library_encoding` - detect system encoding + regional advice
@@ -59,6 +59,12 @@ Formats that a machine has and this build cannot identify are the most useful co
 2. Review it, then `library_format op=report draft=<file> include=[...]` - or run
    `op=report dir=<directory>` directly. Both write a ~1.5 KB archive under `$DSH_HOME/library/reports`
    and print what is inside.
-3. Send it yourself if you want to (the manifest lists the address and subject), or open an issue with
+3. `library_format op=deliver` (or `op=report ui=true`) opens the archive in a **native window** -
+   a Windows dialog with a read-only preview and `Send by e-mail...` / `Save a copy...` /
+   `Open folder` / `Delete report` buttons; on Linux/macOS it uses zenity, kdialog or osascript.
+   Sending opens **your own** mail client and selects the file in the folder window, because an
+   e-mail cannot carry the attachment by itself. On hosts without a desktop, pass `headless: true`
+   and you get the same information as plain instructions.
+4. No GUI at all? Send it yourself (the manifest lists the address and subject), or open an issue with
    the contents of `manifest.txt` - by design it holds no paths or file names, so pasting it is safe.
    Keep it local instead and use `op=learn` if you would rather not share at all.
