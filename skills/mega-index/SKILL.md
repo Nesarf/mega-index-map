@@ -12,7 +12,7 @@ Works with the `mega-index-map` plugin, which keeps a cross-workspace object lib
 - `library_index` — rebuild/dedupe/sort; reports conflicts
 - `library_query` — search (keyword/type/tags, cursor pagination)
 - `library_detect` — scan & register known tools/environments
-- `library_sniff` — identify a file's true type from magic header bytes (96 signatures)
+- `library_sniff` — identify a file's true type from magic header bytes (105 signatures)
 - `library_decrypt` — manually decrypt a sensitive object
 - `library_export` — export to JSON/NDJSON (sensitive stays encrypted)
 - `library_encoding` — detect system encoding + regional advice
