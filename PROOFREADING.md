@@ -86,4 +86,62 @@ mail addresses, vendor names, duplicated versions, dates, GUIDs, ports, credenti
 plus a per-line dump for judgement. Note the trap: a naive drive-letter pattern also matches the
 `s:/` inside `https://`, so the rule must exclude a letter preceded by a word character.
 
-Next round: keep the edits surgical and verified, and do not copy code between the two trees.
+## Round 3 - full proofread and traversal of this repository, 2026-09-11
+
+Scope: this repository alone. Every local suite was run (193 checks across 8 suites), together with
+the 55-call traversal and its 1,600-file false-positive sweep, both repository invariants, and a new
+runtime contract sweep that makes 99 calls (including malformed ones) and diffs the keys actually
+returned against each tool's declared output schema. An independent adversarial read of
+`lib/index.js` was commissioned as well; every one of its 16 findings was reproduced or refuted here
+before anything changed, and three of them did not survive that check.
+
+Fixed after reproduction:
+
+- `library_sniff` reported a missing path, a directory passed as `path`, and a zero-byte file all as
+  `kind: "empty"`, because the header reader returns no bytes in all three cases. It now reports
+  distinct kinds (missing / directory / unreadable / special / empty) with a note, and its
+  description says what each mode returns.
+- The locale rules used on Linux and macOS matched language and country codes as bare substrings:
+  KOI8-R was read as Korean, `en_GB` as Chinese, and `en_GB.ISO-8859-1` hit the gb rule before the
+  ISO-8859-1 rule. The locale is now parsed as `<language>[_COUNTRY][.codeset]`, `C`/`POSIX` count
+  as plain ASCII (which is valid UTF-8), and EUC-JP is recognised apart from Shift-JIS. Five
+  regression checks were added to the POSIX suite.
+- `library_format`'s output schema declared `draft` and `paths`, which no branch has ever returned.
+- `op=deps` returned `unidentifiedCount: <files inspected>` - a key whose name promised something it
+  did not contain.
+- `op=report` advertised passphrase protection whenever `seal` was passed, even when the archive
+  contained no sealed layer; it now follows the archive's actual state.
+- A report dialog program that fails to launch (missing `powershell.exe`/`sh`, EACCES) left the
+  caller waiting out the full 60 s cap and then reported "pending", which reads like a user still
+  deciding. It now reports "unavailable" at once.
+- `saveIndex` wrote `index.json` in place, so a crash, a kill or a full disk mid-write truncated it
+  and the next read returned an empty library over the top of it. It now writes a sibling temp file
+  and renames it into place.
+- A library directory that cannot be created made every read throw, because `ensureLibrary` ran
+  outside `loadIndex`'s try block; reads now degrade instead, and a failed write names the
+  directory that is not writable.
+- A directory passed where a file was expected reached `readFileSync`/`writeFileSync` as EISDIR in
+  `op=unseal`, `op=deliver`, `op=report out`, `op=draft out` and `library_export path`. All five now
+  refuse with a structured result.
+
+Refuted, and recorded here so that a later round does not "fix" them:
+
+- a non-array `tags`/`links` cannot reach `execute`: the harness validates arguments before the tool
+  runs, which is why the same class of guard exists in the query tool for a different reason.
+- `library_export` takes `path`, not `out`; that finding was built on a parameter name that does not
+  exist, and the call it described silently exported to the default file instead.
+- the locale fault does not reproduce on Windows at all: win32 reads the console code page, so the
+  locale rules only ever apply on Linux and macOS.
+
+Known gap, deliberately left as its own change: the two local-pack writes (`saveLocalCandidates`,
+`saveLocalFormats`) are still unlocked read-modify-write cycles, so two processes sharing one
+`$DSH_HOME` can lose a concurrent `library_format add/remove` or `library_detect add/remove`. The
+commit message of `ade7910` states that both pack writes use the lock; that statement is wrong and
+this line corrects it. Closing the gap means holding the lock across load-mutate-save at five call
+sites, i.e. restructuring a verified file, so it is not folded into a proofreading pass.
+
+Two declared keys cannot be observed headlessly and are not defects: `library_format.savedTo` needs
+a human to press Save in the native window, and `library_adb.local` needs an attached device.
+
+Next round: close the pack-write lock gap first, then keep the edits surgical and verified, and do
+not copy code between the two trees.
