@@ -1,6 +1,6 @@
 {
   "name": "mega-index-map",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Cross-workspace interop Library for DeepSeek Harness: record, index and search files, tools, environments, knowledge and work records across workspaces, with a self-extending file-format library.",
   "keywords": [
     "dsh",
