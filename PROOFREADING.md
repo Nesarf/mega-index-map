@@ -49,4 +49,41 @@ Deliberately left alone, recorded so that a later round does not change them by 
 - the sibling's key-derivation domain separators are untouched, since changing them would
   invalidate anything already sealed with the old value.
 
+## Round 2 - hardcoded values, 2026-09-11
+
+A sweep for values baked into source instead of derived, resolved or configured: machine paths,
+embedded endpoints, vendor names, duplicated versions and stale counts. Every hit was judged, so
+that the intentional ones are recorded as decisions rather than left to be re-flagged.
+
+Intentional and kept, by design:
+
+- the machine-local seed catalogs (the candidate lists in both trees, and the media engine paths):
+  each entry is existence-checked, carries cross-platform alternatives, and the media and device
+  engines can be pointed elsewhere with `FFPROBE_PATH` / `MEDIAINFO_PATH` / `ADB_PATH`;
+- the report intake address, kept in round 1 for the maintainer's own filtering;
+- repository identity strings (package URLs, the install command) and the version field itself.
+
+Fixed in this repository:
+
+- the release workflow built its install line from a hardcoded `github:Nesarf/mega-index-map` while
+  the changelog line one screen below already used `${GITHUB_REPOSITORY}` - both now derive it;
+- two user-facing strings pointed at a specific third-party upload service; they now say "a file
+  host of your choice" (identical guidance, no embedded vendor);
+- the seed-list comment and the README `library_detect` line now state that the built-in paths
+  describe one machine's layout, that missing paths are simply skipped, and how to seed your own.
+
+Fixed in the sibling, which has no version control of its own:
+
+- its MCP server advertised a second hardcoded version string while the core elsewhere reads the
+  version from package.json; it now imports that single derived value (checked with a live MCP
+  handshake - `initialize` reports the package version, not a literal);
+- one tool description used two of the maintainer's own workspace names as examples; they are now
+  neutral example paths;
+- the workstation document claimed 10 tools in four places; the registry holds 12.
+
+Audit tooling for the next pass: a dependency-free scanner (machine paths, embedded endpoints and
+mail addresses, vendor names, duplicated versions, dates, GUIDs, ports, credential-shaped values)
+plus a per-line dump for judgement. Note the trap: a naive drive-letter pattern also matches the
+`s:/` inside `https://`, so the rule must exclude a letter preceded by a word character.
+
 Next round: keep the edits surgical and verified, and do not copy code between the two trees.
