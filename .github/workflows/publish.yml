@@ -15,14 +15,17 @@ permissions:
   id-token: write
 
 jobs:
-  # English/ASCII invariant: the only non-ASCII allowed is the functional CJK regexes in
-  # SENSITIVE_PATTERNS (lib/index.js). Cheap, dependency-free, runs on every push and tag.
+  # Repository invariants: English/ASCII (the only non-ASCII allowed is the functional CJK regexes
+  # in SENSITIVE_PATTERNS) plus a consistency proofread of docs vs code, op lists, parameter
+  # wiring and the no-network rule. Cheap and dependency-free, so it runs on every push and tag.
   invariant:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: English/ASCII invariant
         run: node scripts/check-ascii.mjs
+      - name: Consistency proofread
+        run: node scripts/check-consistency.mjs
 
   # npm publishing is opt-in: set the repository variable NPM_PUBLISH=true (and configure a
   # Trusted Publisher for this repository on npmjs.com, or add an NPM_TOKEN secret) to enable
