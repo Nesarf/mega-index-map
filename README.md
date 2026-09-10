@@ -38,5 +38,7 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
   `scripts/check-isolation.mjs` enforces both directions (see [ISOLATION.md](ISOLATION.md)).
 - Three things are held invariant and checked on every push: English/ASCII-only output,
   Windows/macOS/Linux portability, and UTF-8-safe handling of multi-language text.
-  `npm run check` runs all of it (ASCII, consistency, portability, isolation).
+  `npm run check` runs all of it (ASCII, consistency, portability, isolation), and
+  `npm run selfcheck` runs the five-stage pass - smoke, traversal, proofread, traversal, smoke - keeping
+  those three axes in view and reporting them per axis.
 - MIT License. See [LICENSE](LICENSE).

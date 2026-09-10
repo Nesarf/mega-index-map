@@ -223,10 +223,16 @@ English/ASCII-only output (except the documented CJK sensitive-content patterns)
 portability (nothing may assume Windows; Windows-specific code needs a POSIX counterpart, argv-only
 spawns, `os.tmpdir()` for temp files and `path.delimiter` for PATH), and multi-language encoding
 adaptation (UTF-8 in and out, an explicit encoding on every text read/write, a stated BOM policy, and
-locale detection that cannot read a two-letter substring as a language or country code). The first two
-are enforced by `scripts/check-ascii.mjs` and `scripts/check-portability.mjs` on every push; the third is
-covered by the encoding checks in `check-portability.mjs` plus the POSIX locale suite and the runtime
-round-trip test.
+locale detection that cannot read a two-letter substring as a language or country code).
+
+The three axes and the five stages are now executable rather than remembered: `npm run selfcheck`
+(`scripts/selfcheck.mjs`) runs smoke, traversal, proofread, traversal, smoke, and reports the three axes
+with a per-axis count, so a pass that silently drops one is visible. The static half of the axes is
+enforced by `check-ascii.mjs` and `check-portability.mjs` on every push; the behavioural half is in the
+self-check itself (encoding round trips, unicode paths, argv spawns, ASCII-only plugin vocabulary - user
+data may of course be any language). `--plugin <path>` points the battery at another build, which is how
+the checks are fault-injection tested: a non-ASCII note, an unenforced built-in clash and a BOM-prefixed
+index each turn it red.
 
 Next round: re-run the five-stage sequence after any change to the lock or the dialog, keep the edits
 surgical and verified, and do not copy code between the two trees.
