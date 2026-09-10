@@ -218,5 +218,15 @@ PowerShell is version 7, which hosts the dialog; Windows PowerShell 5.1 is still
 fallback path in the code. Which shell a particular machine prefers is machine state, not repository
 state, and it is kept in a local machine map rather than here.
 
+Standing requirement for every pass, recorded 2026-09-11: each round must hold three axes explicitly -
+English/ASCII-only output (except the documented CJK sensitive-content patterns), mainstream-OS
+portability (nothing may assume Windows; Windows-specific code needs a POSIX counterpart, argv-only
+spawns, `os.tmpdir()` for temp files and `path.delimiter` for PATH), and multi-language encoding
+adaptation (UTF-8 in and out, an explicit encoding on every text read/write, a stated BOM policy, and
+locale detection that cannot read a two-letter substring as a language or country code). The first two
+are enforced by `scripts/check-ascii.mjs` and `scripts/check-portability.mjs` on every push; the third is
+covered by the encoding checks in `check-portability.mjs` plus the POSIX locale suite and the runtime
+round-trip test.
+
 Next round: re-run the five-stage sequence after any change to the lock or the dialog, keep the edits
 surgical and verified, and do not copy code between the two trees.

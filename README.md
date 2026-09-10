@@ -36,4 +36,7 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
 - This package and the sibling cross-harness build are read-only with respect to each other; nothing
   here writes outside `$DSH_HOME`, the OS temp directory or a path the caller passed in, and
   `scripts/check-isolation.mjs` enforces both directions (see [ISOLATION.md](ISOLATION.md)).
+- Three things are held invariant and checked on every push: English/ASCII-only output,
+  Windows/macOS/Linux portability, and UTF-8-safe handling of multi-language text.
+  `npm run check` runs all of it (ASCII, consistency, portability, isolation).
 - MIT License. See [LICENSE](LICENSE).
