@@ -9,7 +9,7 @@ environments, products, knowledge, work records — into an independent library 
 - `library_record` — record an object (file/tool/env/product/knowledge/work record)
 - `library_index` — rebuild/dedupe/sort the library, report conflicts
 - `library_query` — search (keyword/type/tags, cursor pagination)
-- `library_detect` — scan & register known tools/environments
+- `library_detect` — scan & register machine tools/environments (built-in list + this machine's local candidate pack); `list`/`add`/`remove`/`propose` manage the pack
 - `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory for mismatches
 - `library_format` — personalise *this install's* format library: `scan` proposes the types this machine has that the library cannot identify; `learn`/`add` register them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`; `remove` drops one; `deps` reports which formats reference which other formats (extensions only, DLL names opt-in); `draft` writes a reviewable checklist (optionally keeping the raw context locally, encrypted); `report` builds a small contribution archive from a directory or from the draft items **you** select, and `unseal` reopens a sealed layer with your own passphrase
 - `library_decrypt` — manually decrypt a sensitive object
@@ -28,6 +28,10 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
 - The library lives at `$DSH_HOME/library` (default `~/.dsh/library`). Built-in format signatures
   are fixed; whatever this machine adds lives in `library/formats.local.json` — built-ins always win,
   so a local entry can never shadow a known format.
+- Toolchains and services work the same way: `library_detect op=add` records a machine-specific
+  tool/env into `library/candidates.local.json`, and every later scan recognises it alongside the
+  built-in list. Built-ins always win (`op=propose` only suggests, `op=scan` never executes a
+  candidate — a path is recorded and checked for existence, nothing more).
 - Sensitive content (credentials, keys, etc.) is AES-256-GCM encrypt-isolated; only manual
   `library_decrypt` exposes it.
 - Format reports are **local and manual**: `library_format op=report` writes a ~1.5 KB archive under
