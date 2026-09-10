@@ -42,13 +42,16 @@ function walk(dir, out = []) {
   return out;
 }
 
-// --- files: parseable, ASCII apart from the documented CJK regexes -------------------------
+// --- files: parseable, ASCII apart from the two documented exceptions -----------------------
+// check-ascii.mjs owns the full statement of those exceptions; here the non-Han non-ASCII scan simply
+// skips the one localized document, whose Chinese punctuation is prose.
+const LOCALIZED_DOCS = new Set(["README.zh-CN.md"]);
 const files = walk(ROOT);
 for (const f of files) {
   const rel = path.relative(ROOT, f).replace(/\\/g, "/");
   const text = fs.readFileSync(f, "utf8");
   const nonHan = [...new Set([...text].filter((c) => c.codePointAt(0) > 0x7f))].filter((c) => !/\p{Script=Han}/u.test(c));
-  if (nonHan.length) problems.push(`${rel}: non-Han non-ASCII ${nonHan.join(" ")}`);
+  if (nonHan.length && !LOCALIZED_DOCS.has(rel)) problems.push(`${rel}: non-Han non-ASCII ${nonHan.join(" ")}`);
   if (rel.endsWith(".json")) { try { JSON.parse(text); } catch (e) { problems.push(`${rel}: invalid JSON (${e.message})`); } }
   if (/\.ya?ml$/.test(rel) && text.split("\n").some((l) => l.startsWith("\t"))) problems.push(`${rel}: tab indentation in YAML`);
 }
@@ -103,6 +106,18 @@ for (const [label, doc] of [["README.md", readme], ["SKILL.md", skill]]) {
 }
 for (const op of ["list", "scan", "learn", "add", "remove", "draft", "deps", "report", "deliver", "unseal"]) {
   if (!readme.includes(op) || !skill.includes(op)) problems.push(`op "${op}" is missing from README.md or SKILL.md`);
+}
+// The localized README is a translation, so it must not silently lose a tool or the signature count: a
+// translation that drifts is worse than no translation, because it reads as authoritative.
+const zhPath = path.join(ROOT, "README.zh-CN.md");
+if (fs.existsSync(zhPath)) {
+  const zh = fs.readFileSync(zhPath, "utf8");
+  const missingZh = tools.map((t) => t.name).filter((n) => !zh.includes("`" + n + "`"));
+  if (missingZh.length) problems.push(`README.zh-CN.md: tools not documented: ${missingZh.join(", ")}`);
+  if (!new RegExp(`(?:^|[^0-9])${sigCount}(?:[^0-9]|$)`).test(zh)) problems.push(`README.zh-CN.md: does not state the signature count (${sigCount})`);
+  for (const op of ["list", "scan", "learn", "add", "remove", "draft", "deps", "report", "deliver", "unseal"]) {
+    if (!zh.includes(op)) problems.push(`README.zh-CN.md: op "${op}" is missing`);
+  }
 }
 
 // --- safety invariants --------------------------------------------------------------------

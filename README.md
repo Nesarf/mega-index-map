@@ -1,5 +1,7 @@
 # mega-index-map
 
+> Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
+
 A cross-workspace Library for DeepSeek Harness. Agents record the objects they meet - files, tools,
 environments, knowledge, work records - into `$DSH_HOME/library`, so any conversation can index,
 search and reuse them.
