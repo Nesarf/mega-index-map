@@ -195,5 +195,28 @@ The stress harness runs both builds side by side (`MEGA_PLUGIN`), so this test c
 detecting the defect. The five-stage self-check, both traversals, the three invariants, the runtime
 contract sweep and the isolation witness all pass afterwards.
 
-Next round: re-run the five-stage sequence after any change to the lock, keep the edits surgical and
-verified, and do not copy code between the two trees.
+## Round 6 - the shell that hosts the dialog, and a full self-check, 2026-09-11
+
+One portability change, and the pass that followed it.
+
+Changed: the native delivery dialog no longer hardcodes `powershell.exe`. Both PowerShell 7 (`pwsh.exe`)
+and Windows PowerShell 5.1 can host the WinForms dialog with `-STA`, so `dialogShell()` now prefers 7 -
+the shell modern Windows installs and the one this machine defaults to - searching the standard install
+location first and then every PATH entry (which also covers portable copies and the Microsoft Store
+alias), and falling back to `POWERSHELL_PATH`/`powershell.exe`. `PWSH_PATH` overrides the choice, and the
+deliver result reports `shell`, so which program ran the window is never a guess. The POSIX path is
+untouched. Verified by a self-test deliver that really opened the window under pwsh 7.6.6.
+
+The five-stage self-check afterwards: 193 suite checks twice, the traversal twice (59 of 59 assertions
+and 0 flagged in the 1,600-file sweep, both times), the three repository invariants, the static audit
+with 0 problems, the runtime contract sweep at 100 calls with one remaining unobservable key
+(`library_adb.local`, which needs an attached device), and an isolation witness reporting 38 files -
+both trees and the user's library - byte-identical across the whole run.
+
+Environment note, recorded because it explains what the dialog was verified under: the host's default
+PowerShell is version 7, which hosts the dialog; Windows PowerShell 5.1 is still present and remains the
+fallback path in the code. Which shell a particular machine prefers is machine state, not repository
+state, and it is kept in a local machine map rather than here.
+
+Next round: re-run the five-stage sequence after any change to the lock or the dialog, keep the edits
+surgical and verified, and do not copy code between the two trees.
