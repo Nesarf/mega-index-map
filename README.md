@@ -39,4 +39,22 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
   to encrypt that user-level layer with AES-256-GCM under a key derived from **your** passphrase:
   you can reopen it any time with `op=unseal`, and nobody else can. Encryption here protects your own
   data from exposure — it is never a way to hide anything from you, and it never enables transmission.
+- **What happens to a report you send.** It is used for one purpose only: extending the built-in format
+  library. If a format corpus is ever published, only format facts are published — extensions, magic
+  bytes and format→format relationships; no directory paths, file names, DLL names or any third-party
+  identifier ever enters a public set. A report you choose not to send stays on your machine, and
+  deleting it is enough to withdraw it.
 - MIT License. See [LICENSE](LICENSE).
+
+## Contributing formats
+
+Formats that a machine has and this build cannot identify are the most useful contribution:
+
+1. `library_format op=draft dir=<directory>` writes a checklist (nothing is sent); add
+   `keepLocal: true` to also keep the raw context encrypted on your own machine, so nothing is lost.
+2. Review it, then `library_format op=report draft=<file> include=[...]` — or run
+   `op=report dir=<directory>` directly. Both write a ~1.5 KB archive under `$DSH_HOME/library/reports`
+   and print what is inside.
+3. Send it yourself if you want to (the manifest lists the address and subject), or open an issue with
+   the contents of `manifest.txt` — by design it holds no paths or file names, so pasting it is safe.
+   Keep it local instead and use `op=learn` if you would rather not share at all.
