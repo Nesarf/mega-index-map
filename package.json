@@ -16,6 +16,7 @@
   "files": [
     "lib",
     "skills",
+    "scripts",
     "cordis.patch.yml",
     "README.md",
     "LICENSE"
@@ -26,7 +27,8 @@
     }
   },
   "scripts": {
-    "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\""
+    "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\"",
+    "check": "node scripts/check-ascii.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-tools": "*"

@@ -7,7 +7,7 @@ labels: format-contribution
 
 <!--
 Thank you. A format report is safe to publish: by design it contains only file extensions,
-magic-byte prefixes, counts and format→format relationships — no file names, no directory paths,
+magic-byte prefixes, counts and format->format relationships - no file names, no directory paths,
 no file contents.
 
 Generate one with:

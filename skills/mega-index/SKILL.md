@@ -8,16 +8,16 @@ whenToUse: When persisting a tool/file/env/knowledge/record into the Library, or
 
 Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers ten tools:
 
-- `library_record` — record an object; change detection routes verify/confirm; media changes carry ffprobe+MediaInfo evidence
-- `library_index` — rebuild/dedupe/sort; reports conflicts
-- `library_query` — search (keyword/type/tags, cursor pagination)
-- `library_detect` — scan & register machine tools/environments/toolchains (built-in list + this machine's local candidate pack); `list` shows both, `add`/`remove` manage the pack, `propose dir=<directory>` only suggests executables found there; built-ins always win, collisions are refused unless `confirm:true`, proposing records nothing, and no candidate is ever executed
-- `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
-- `library_format` — personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one, `deps` maps format→format references (extensions only; DLL names opt-in), `draft` writes a reviewable checklist (with `keepLocal` the raw context is kept encrypted in the Library), `report` builds a local archive from a directory or from the draft items the user selects, `unseal` reopens a sealed layer; built-ins always win, conflicts are refused unless `confirm:true`, no network I/O happens, and user-level fields (paths, DLL names) are omitted by default, sanitised when requested, or sealed with a passphrase the user holds
-- `library_decrypt` — manually decrypt a sensitive object
-- `library_export` — export to JSON/NDJSON (sensitive stays encrypted)
-- `library_encoding` — detect system encoding + regional advice
-- `library_adb` — Android device management over ADB (developer subset)
+- `library_record` - record an object; change detection routes verify/confirm; media changes carry ffprobe+MediaInfo evidence
+- `library_index` - rebuild/dedupe/sort; reports conflicts
+- `library_query` - search (keyword/type/tags, cursor pagination)
+- `library_detect` - scan & register machine tools/environments/toolchains (built-in list + this machine's local candidate pack); `list` shows both, `add`/`remove` manage the pack, `propose dir=<directory>` only suggests executables found there; built-ins always win, collisions are refused unless `confirm:true`, proposing records nothing, and no candidate is ever executed
+- `library_sniff` - true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
+- `library_format` - personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one, `deps` maps format->format references (extensions only; DLL names opt-in), `draft` writes a reviewable checklist (with `keepLocal` the raw context is kept encrypted in the Library), `report` builds a local archive from a directory or from the draft items the user selects, `unseal` reopens a sealed layer; built-ins always win, conflicts are refused unless `confirm:true`, no network I/O happens, and user-level fields (paths, DLL names) are omitted by default, sanitised when requested, or sealed with a passphrase the user holds
+- `library_decrypt` - manually decrypt a sensitive object
+- `library_export` - export to JSON/NDJSON (sensitive stays encrypted)
+- `library_encoding` - detect system encoding + regional advice
+- `library_adb` - Android device management over ADB (developer subset)
 
 ## When to record
 
@@ -25,9 +25,9 @@ Record an object worth reusing across workspaces: a tool/script, a produced file
 
 ## When to search
 
-- New conversation wants what another workspace recorded → `library_query` (type/tags/keyword).
-- Research what a workspace used → filter by `source` or `tags`.
-- Cross-workspace reuse → search, get the `path`, then use it.
+- New conversation wants what another workspace recorded -> `library_query` (type/tags/keyword).
+- Research what a workspace used -> filter by `source` or `tags`.
+- Cross-workspace reuse -> search, get the `path`, then use it.
 
 ## Red lines
 
@@ -39,5 +39,5 @@ Record an object worth reusing across workspaces: a tool/script, a produced file
 
 `library_record` fingerprints the same-key object; on content change it routes by type:
 
-- **verify** (tool/plugin/env) — records a new version and notifies DSH to check the object's state.
-- **confirm** (immutable files: persona/image/document/table/audio/work_record/log) — does not auto-overwrite; ask the user to confirm/explain.
+- **verify** (tool/plugin/env) - records a new version and notifies DSH to check the object's state.
+- **confirm** (immutable files: persona/image/document/table/audio/work_record/log) - does not auto-overwrite; ask the user to confirm/explain.

@@ -15,10 +15,20 @@ permissions:
   id-token: write
 
 jobs:
+  # English/ASCII invariant: the only non-ASCII allowed is the functional CJK regexes in
+  # SENSITIVE_PATTERNS (lib/index.js). Cheap, dependency-free, runs on every push and tag.
+  invariant:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: English/ASCII invariant
+        run: node scripts/check-ascii.mjs
+
   # npm publishing is opt-in: set the repository variable NPM_PUBLISH=true (and configure a
   # Trusted Publisher for this repository on npmjs.com, or add an NPM_TOKEN secret) to enable
   # it. Without that the job is skipped instead of failing on every push to main.
   npm:
+    needs: invariant
     if: ${{ github.ref == 'refs/heads/main' && vars.NPM_PUBLISH == 'true' }}
     runs-on: ubuntu-latest
     steps:
@@ -45,6 +55,7 @@ jobs:
   # A GitHub Release is cut from a version tag (push v*). Notes are built from the commits
   # since the previous tag, so they are meaningful without pull requests.
   release:
+    needs: invariant
     if: ${{ startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
     steps:
@@ -58,7 +69,7 @@ jobs:
           RANGE=$([ -n "$PREV" ] && echo "${PREV}..${TAG}" || echo "${TAG}")
           {
             echo "Cross-workspace interop Library for DeepSeek Harness: record, index and search files,"
-            echo "tools, environments, knowledge and work records across workspaces — plugin bundle, no build step."
+            echo "tools, environments, knowledge and work records across workspaces - plugin bundle, no build step."
             echo
             echo "Install: \`dsh plugin --profile web add github:Nesarf/mega-index-map\`"
             echo
