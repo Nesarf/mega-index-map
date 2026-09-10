@@ -33,4 +33,7 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
   rebuild 26 ms (index file around 2.3 MB). Back up or migrate with `library_export`.
 - Concurrent writers are serialised through a lock file: a lock whose owner died is taken over, and
   a busy one is waited for for up to two seconds before the write proceeds and says so in the log.
+- This package and the sibling cross-harness build are read-only with respect to each other; nothing
+  here writes outside `$DSH_HOME`, the OS temp directory or a path the caller passed in, and
+  `scripts/check-isolation.mjs` enforces both directions (see [ISOLATION.md](ISOLATION.md)).
 - MIT License. See [LICENSE](LICENSE).
