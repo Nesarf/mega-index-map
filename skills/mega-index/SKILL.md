@@ -8,16 +8,16 @@ whenToUse: When persisting a tool/file/env/knowledge/record into the Library, or
 
 Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers ten tools:
 
-- `library_record` - record an object; change detection routes verify/confirm; media changes carry ffprobe+MediaInfo evidence
+- `library_record` - record an object; change detection routes verify/confirm
 - `library_index` - rebuild/dedupe/sort; reports conflicts
 - `library_query` - search (keyword/type/tags, cursor pagination)
-- `library_detect` - scan & register machine tools/environments/toolchains (built-in list + this machine's local candidate pack); `list` shows both, `add`/`remove` manage the pack, `propose dir=<directory>` only suggests executables found there; built-ins always win, collisions are refused unless `confirm:true`, proposing records nothing, and no candidate is ever executed
-- `library_sniff` - true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
-- `library_format` - personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one, `deps` maps format->format references (extensions only; DLL names opt-in), `draft` writes a reviewable checklist (with `keepLocal` the raw context is kept encrypted in the Library), `report` builds a local archive from a directory or from the draft items the user selects, `deliver` shows it in the platform's own window (preview + Send by e-mail / Save a copy / Open folder / Delete report; `headless: true` returns instructions instead), `unseal` reopens a sealed layer; built-ins always win, conflicts are refused unless `confirm:true`, no network I/O happens, and user-level fields (paths, DLL names) are omitted by default, sanitised when requested, or sealed with a passphrase the user holds
-- `library_decrypt` - manually decrypt a sensitive object
-- `library_export` - export to JSON/NDJSON (sensitive stays encrypted)
-- `library_encoding` - detect system encoding + regional advice
-- `library_adb` - Android device management over ADB (developer subset)
+- `library_detect` - scan and register this machine's tools/environments; `list`/`add`/`remove`/`propose` manage a local candidate pack (built-ins always win; `propose` only suggests)
+- `library_sniff` - identify a file by its header bytes (108 signatures); `dir` mode sweeps a directory
+- `library_format` - extend this machine's format library: `scan` `learn` `add` `remove` `deps` `draft` `report` `deliver` `unseal` (local pack at `$DSH_HOME/library/formats.local.json`; built-ins always win, conflicts refused unless `confirm:true`)
+- `library_decrypt` - read back an isolated sensitive object on request
+- `library_export` - export to JSON/NDJSON
+- `library_encoding` - report the host encoding + how to switch to UTF-8
+- `library_adb` - developer-side Android device operations over ADB
 
 ## When to record
 
@@ -32,8 +32,8 @@ Record an object worth reusing across workspaces: a tool/script, a produced file
 ## Red lines
 
 - Only write under `$DSH_HOME/library`; never C: or arbitrary paths; never record secrets.
-- Sensitive subjects (credentials/keys/ransom/etc.) are automatically encrypt-isolated; only `sensitive:true` metadata is searchable; reading needs manual `library_decrypt`.
-- `library_record` requires a valid `type`; don't edit library files directly.
+- Don't edit library files directly; `library_record` requires a valid `type`.
+- The plugin performs no network I/O: anything it produces stays local until a person chooses otherwise.
 
 ## Change detection
 
