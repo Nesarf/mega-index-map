@@ -11,7 +11,7 @@ environments, products, knowledge, work records — into an independent library 
 - `library_query` — search (keyword/type/tags, cursor pagination)
 - `library_detect` — scan & register known tools/environments
 - `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory for mismatches
-- `library_format` — personalise *this install's* format library: scan for unidentified types on this machine, then teach them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`
+- `library_format` — personalise *this install's* format library: `scan` proposes the types this machine has that the library cannot identify; `learn`/`add` register them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`; `report` writes a small contribution archive (extensions + magic prefixes + counts, no names/paths/contents) that **you** may choose to send
 - `library_decrypt` — manually decrypt a sensitive object
 - `library_export` — export to JSON/NDJSON
 - `library_encoding` — detect system encoding + regional advice
@@ -30,4 +30,7 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
   so a local entry can never shadow a known format.
 - Sensitive content (credentials, keys, etc.) is AES-256-GCM encrypt-isolated; only manual
   `library_decrypt` exposes it.
+- Format reports are **local and manual**: `library_format op=report` writes a ~1 KB archive under
+  `$DSH_HOME/library/reports` and prints what is inside. The plugin performs no network I/O and never
+  sends anything — whether to deliver it (e-mail, file host, or not at all) is entirely your call.
 - MIT License. See [LICENSE](LICENSE).

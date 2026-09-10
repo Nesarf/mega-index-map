@@ -13,7 +13,7 @@ Works with the `mega-index-map` plugin, which keeps a cross-workspace object lib
 - `library_query` — search (keyword/type/tags, cursor pagination)
 - `library_detect` — scan & register known tools/environments
 - `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
-- `library_format` — personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one; built-ins always win and conflicts are refused unless `confirm:true`
+- `library_format` — personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one, `report` writes a small local contribution archive (extensions + magic prefixes + counts only) that the **user** may choose to send; built-ins always win, conflicts are refused unless `confirm:true`, and no network I/O happens
 - `library_decrypt` — manually decrypt a sensitive object
 - `library_export` — export to JSON/NDJSON (sensitive stays encrypted)
 - `library_encoding` — detect system encoding + regional advice
