@@ -143,5 +143,34 @@ sites, i.e. restructuring a verified file, so it is not folded into a proofreadi
 Two declared keys cannot be observed headlessly and are not defects: `library_format.savedTo` needs
 a human to press Save in the native window, and `library_adb.local` needs an attached device.
 
-Next round: close the pack-write lock gap first, then keep the edits surgical and verified, and do
-not copy code between the two trees.
+## Round 4 - isolation guard and a five-stage self-check, 2026-09-11
+
+Added, so that the two-way read-only rule is enforced rather than assumed: `ISOLATION.md`, the static
+scan in `scripts/check-isolation.mjs` (wired into `npm run check`, therefore into CI), its witness
+mode (`snapshot` / `verify`), and a README pointer.
+
+The self-check ran the sequence smoke, traversal, proofread, traversal, smoke - bracketed by a
+snapshot before it and a verify after it - i.e. 193 suite checks twice, the 55-call traversal and its
+1,600-file false-positive sweep twice, the three repository invariants plus the static and hardcoding
+audits in the middle, and the sibling's own read-only cross-check as the reverse-direction witness.
+
+The first smoke pass was clean and the second was not: the lock suite dropped to 5 of 8, with one
+child process exiting 1 and 22 of 50 records lost. Everything else was identical in both passes.
+
+Root cause, confirmed under stress: the temp-file-plus-rename from round 3. On Windows a rename over
+a file another process holds open fails (EPERM/EBUSY/EACCES), and readers of the index are
+deliberately lock-free, so a concurrent read blocked the swap, the write threw, and the child died. A
+ten-round, two-process stress reproduced it in 2 of 10 rounds. The fix retries the rename briefly and
+then writes in place, logging that the atomic swap was blocked, because never losing a record
+outranks the crash-safety of the swap. After the fix: 10 of 10 stress rounds and five consecutive
+lock-suite runs clean.
+
+A finding about the witness itself: the verify reported two changed files, both in the sibling tree
+(its `core.mjs` and a new `tools/selfcheck.mjs`). That is the sibling's own session at work, not this
+package reaching across the boundary - the static guard proves there is no write path to reach with.
+A snapshot can never tell "the sibling moved" from "we moved the sibling", so the witness now
+attributes each difference to its side and exits 3 for a sibling-only move and 1 for a change to this
+repository or to the user's library; the static guard is what closes the gap the snapshot leaves.
+
+Next round: close the pack-write lock gap first, then re-run this five-stage sequence, keep the edits
+surgical and verified, and do not copy code between the two trees.
