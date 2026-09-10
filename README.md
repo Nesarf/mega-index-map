@@ -10,7 +10,8 @@ environments, products, knowledge, work records — into an independent library 
 - `library_index` — rebuild/dedupe/sort the library, report conflicts
 - `library_query` — search (keyword/type/tags, cursor pagination)
 - `library_detect` — scan & register known tools/environments
-- `library_sniff` — true type from magic header bytes (107 signatures) + name/content forgery check; `dir` mode sweeps a directory for mismatches
+- `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory for mismatches
+- `library_format` — personalise *this install's* format library: scan for unidentified types on this machine, then teach them (magic signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`
 - `library_decrypt` — manually decrypt a sensitive object
 - `library_export` — export to JSON/NDJSON
 - `library_encoding` — detect system encoding + regional advice
@@ -24,7 +25,9 @@ dsh plugin --profile web add github:Nesarf/mega-index-map
 
 ## Notes
 
-- The library lives at `$DSH_HOME/library` (default `~/.dsh/library`).
+- The library lives at `$DSH_HOME/library` (default `~/.dsh/library`). Built-in format signatures
+  are fixed; whatever this machine adds lives in `library/formats.local.json` — built-ins always win,
+  so a local entry can never shadow a known format.
 - Sensitive content (credentials, keys, etc.) is AES-256-GCM encrypt-isolated; only manual
   `library_decrypt` exposes it.
 - MIT License. See [LICENSE](LICENSE).

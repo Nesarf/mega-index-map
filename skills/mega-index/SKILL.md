@@ -6,13 +6,14 @@ whenToUse: When persisting a tool/file/env/knowledge/record into the Library, or
 
 # mega-index (cross-workspace interop Library)
 
-Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers nine tools:
+Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers ten tools:
 
 - `library_record` — record an object; change detection routes verify/confirm; media changes carry ffprobe+MediaInfo evidence
 - `library_index` — rebuild/dedupe/sort; reports conflicts
 - `library_query` — search (keyword/type/tags, cursor pagination)
 - `library_detect` — scan & register known tools/environments
-- `library_sniff` — true type from magic header bytes (107 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
+- `library_sniff` — true type from magic header bytes (108 signatures) + name/content forgery check; `dir` mode sweeps a directory (e.g. DSH temp/session dirs) for mismatches
+- `library_format` — personalise this install's format library: `scan` proposes the types this machine has that the library cannot identify, `learn`/`add` register them (signature / text extension / name rule) into `$DSH_HOME/library/formats.local.json`, `remove` drops one; built-ins always win and conflicts are refused unless `confirm:true`
 - `library_decrypt` — manually decrypt a sensitive object
 - `library_export` — export to JSON/NDJSON (sensitive stays encrypted)
 - `library_encoding` — detect system encoding + regional advice
