@@ -172,5 +172,28 @@ A snapshot can never tell "the sibling moved" from "we moved the sibling", so th
 attributes each difference to its side and exits 3 for a sibling-only move and 1 for a change to this
 repository or to the user's library; the static guard is what closes the gap the snapshot leaves.
 
-Next round: close the pack-write lock gap first, then re-run this five-stage sequence, keep the edits
-surgical and verified, and do not copy code between the two trees.
+## Round 5 - the local-pack writes are locked, 2026-09-11
+
+Closed the last unlocked read-modify-write cycle in this package. `library_format` learn/add/remove
+and `library_detect` add/remove each read a local pack, changed it and wrote it back without the
+cross-process lock, so two processes sharing one `$DSH_HOME` could read the same pack and the later
+writer would silently drop the other's entries. The record for round 3 already noted that the commit
+message of `ade7910` claimed otherwise; that claim is now true rather than corrected.
+
+`updateLocalFormats` / `updateLocalCandidates` take the same lock as the index, re-read the pack
+inside it, apply the caller's intent to that fresh pack, and save. The five write sites now express
+their change as an intent instead of mutating a copy read before the lock.
+
+Measured with two processes adding 25 formats and 25 candidates each, against the previous build and
+the fixed one with the same harness:
+
+- before: 0 of 5 rounds survived intact - formats 43 to 49 of 50, candidates as low as 2 of 50, and
+  exit code 0, so the loss was completely silent;
+- after: 5 of 5 rounds hold exactly 50 and 50, with no lock warnings in the library log.
+
+The stress harness runs both builds side by side (`MEGA_PLUGIN`), so this test cannot quietly stop
+detecting the defect. The five-stage self-check, both traversals, the three invariants, the runtime
+contract sweep and the isolation witness all pass afterwards.
+
+Next round: re-run the five-stage sequence after any change to the lock, keep the edits surgical and
+verified, and do not copy code between the two trees.
