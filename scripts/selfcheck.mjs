@@ -223,6 +223,33 @@ function smoke() {
     const enc = await call("library_encoding", {});
     check("ENCODING", "smoke", "encoding reporter answers", typeof enc.utf8 === "boolean" && !!enc.label, JSON.stringify(enc).slice(0, 120));
 
+    // Declared values + declared identity: declare the running interpreter as this machine's own
+    // candidate (the documented op=add path), then scan and read back what the file says about itself.
+    // Nothing is executed to obtain it - the plugin reads the image's own version resource - and the
+    // ASCII axis applies to it too, because a product name is plugin vocabulary, not user data.
+    const addSelf = await call("library_detect", { op: "add", type: "tool", name: "selfcheck runtime", path: process.execPath, desc: "the interpreter running this check" });
+    check("PORTABILITY", "smoke", "a machine-specific tool is declared through op=add", addSelf.ok === true, JSON.stringify(addSelf).slice(0, 120));
+    const idScan = await call("library_detect", { op: "scan" });
+    const selfRow = (idScan.results || []).find((r) => r.name === "selfcheck runtime");
+    check("PORTABILITY", "smoke", "the scan resolves the declared candidate", !!selfRow && selfRow.exists === true, JSON.stringify(selfRow || {}).slice(0, 120));
+    if (process.platform === "win32") {
+      const declared = selfRow && selfRow.declared;
+      const named = declared && /node/i.test(String(declared.product || ""));
+      check("PORTABILITY", "smoke", "the tool's own version resource is read statically", !!named && !!declared.version, JSON.stringify(declared || null).slice(0, 140));
+      if (declared) scanAscii({ declared }, "library_detect.declared");
+    }
+    // A file that is not an image has nothing to declare, and must not invent an answer. It is kept out
+    // of the fixture directory on purpose: a text file named .exe is exactly the spoofed-name case the
+    // traversal stage counts, and this probe must not disturb that count.
+    const junk = path.join(HOME, "not-an-image.exe");
+    fs.writeFileSync(junk, Buffer.from("plain text pretending to be an executable\n", "utf8"));
+    await call("library_detect", { op: "add", type: "tool", name: "selfcheck junk", path: junk, desc: "identity failure-mode probe" });
+    const junkScan = await call("library_detect", { op: "scan" });
+    const junkRow = (junkScan.results || []).find((r) => r.name === "selfcheck junk");
+    check("PORTABILITY", "smoke", "a non-image declares nothing instead of guessing", !!junkRow && junkRow.declared === null, JSON.stringify(junkRow && junkRow.declared));
+    await call("library_detect", { op: "remove", type: "tool", name: "selfcheck junk" });
+    await call("library_detect", { op: "remove", type: "tool", name: "selfcheck runtime" });
+
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
       ["library_encoding", {}],

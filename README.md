@@ -11,10 +11,14 @@ search and reuse them.
 - `library_record` - record an object (change detection routes verify/confirm)
 - `library_index` - rebuild/dedupe/sort the library, report conflicts
 - `library_query` - search by keyword/type/tags, cursor pagination
-- `library_detect` - scan and register this machine's tools/environments (the built-in seed is
-  machine-neutral: command names are resolved from `PATH`, so a normal install is found where it is;
-  a tool kept somewhere of your own goes into the per-install candidate pack with `add`, and
-  `propose` suggests entries from a directory - paths that do not exist are skipped)
+- `library_detect` - scan and register this machine's tools/environments. The built-in seed is
+  machine-neutral: a bare command name is resolved from `PATH`, and a location is written in its owner's
+  own words (`%ProgramFiles%`, `%GOROOT%`, `%ANDROID_HOME%`, `~`, `${HOME}`), with the newest installed
+  build derived from disk where a location rotates with its version. A tool kept somewhere of your own
+  goes into the per-install candidate pack with `add`, and `propose` suggests entries from a directory.
+  A path that does not exist is skipped, and each existing result carries `declared`: what the file
+  itself states about itself (product/version/vendor, read from its own version resource, statically -
+  the tool is never executed)
 - `library_sniff` - identify a file by its header bytes (108 signatures), independent of extension
 - `library_format` - extend this machine's format library: `list` `scan` `learn` `add` `remove` `deps` `draft` `report` `deliver` `unseal`
 - `library_decrypt` - read back an isolated sensitive object on request

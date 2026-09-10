@@ -176,6 +176,31 @@ const bareNames = [...seed.matchAll(/path:\s*"([^"\\/]+)"/g)].length;
 if (bareNames < 1) problems.push("lib/index.js: the candidate seed has no bare command name - tools must be found on PATH, not only at fixed paths");
 notes.push(`machine neutrality: ${foreignDrive.length} foreign-drive path(s), ${namedProfile.length} named profile(s), ${bareNames} bare command name(s) in the seed`);
 
+// --- 11. the seed speaks in declared values, and identity is read statically -------------------
+// The seed may only say a location in its owner's own words: a bare command name, a declared value
+// (%VAR% / ${VAR} / $VAR / ~) or a POSIX host convention. A literal drive-rooted path means someone
+// wrote down where it happens to sit on one machine, which is exactly what a declared value removes -
+// and a literal Windows path is wrong the moment the OS folder is localised or relocated.
+const seedLocations = [
+  ...[...seed.matchAll(/\bpath:\s*"((?:[^"\\]|\\.)*)"/g)].map((m) => JSON.parse(`"${m[1]}"`)),
+  ...[...seed.matchAll(/\balts:\s*\[([^\]]*)\]/g)].flatMap((m) => [...m[1].matchAll(/"((?:[^"\\]|\\.)*)"/g)].map((x) => JSON.parse(`"${x[1]}"`))),
+];
+const literalDrive = seedLocations.filter((v) => /^[A-Za-z]:[\\/]/.test(v));
+for (const p of literalDrive) {
+  problems.push(`lib/index.js: the seed names "${p}" literally - write it with the declared value its owner publishes (%ProgramFiles%, %GOROOT%, %ANDROID_HOME%, ~/\${HOME} ...)`);
+}
+const declaredRefs = seedLocations.filter((v) => /%[A-Za-z_]|[$]/.test(v)).length;
+if (declaredRefs < 5) problems.push(`lib/index.js: only ${declaredRefs} declared value(s) in the seed - the OS and the toolchains publish their own locations, so use them`);
+if (!/function expandDeclared\(/.test(src)) problems.push("lib/index.js: declared values are not expanded anywhere - the seed cannot speak in its owner's words");
+if (!/function pickNewest\(/.test(src)) problems.push("lib/index.js: no newest-build derivation - a version-rotating location would have to be written down");
+// The identity of a tool is read from its own image, statically: no spawn, no shell, no execution.
+const identityFn = src.slice(src.indexOf("function declaredIdentity("), src.indexOf("// ---------- Local tool/env candidate pack"));
+if (/\bspawn|child_process|\bexecSync|execFile/.test(identityFn)) {
+  problems.push("lib/index.js: declaredIdentity() must read the image statically - it may not spawn or execute anything");
+}
+if (!/function declaredIdentity\(/.test(src)) problems.push("lib/index.js: declaredIdentity() is missing - a tool's own words are the only description that stays true");
+notes.push(`declared values: ${declaredRefs}/${seedLocations.length} location(s) declared, ${literalDrive.length} literal drive path(s), identity reader static: ${!/\bspawn|child_process|\bexecSync|execFile/.test(identityFn)}`);
+
 // --- report ---------------------------------------------------------------------------------
 for (const n of notes) console.log(`  ${n}`);
 if (problems.length) {
@@ -185,4 +210,5 @@ if (problems.length) {
 }
 console.log("portability invariant OK - line endings LF, spawns argv-only, platform branches paired,");
 console.log("temp via os.tmpdir(), text I/O explicitly encoded, BOM policy present, PATH via path.delimiter,");
-console.log("the locale detector anchored, and no maintainer disk layout in the shipped source.");
+console.log("the locale detector anchored, no maintainer disk layout in the shipped source,");
+console.log("the candidate seed written in its owners' declared values, and tool identity read statically.");

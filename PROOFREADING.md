@@ -275,3 +275,50 @@ A new portability rule (10) now enforces this: no non-system-drive path and no n
 shipped source, and at least one bare command name in the seed. `check-isolation.mjs` also stopped
 naming the sibling tree absolutely - it now resolves it beside this checkout, `MEGA_INDEX_SIBLING`
 overriding.
+## Round 8 - the seed speaks in declared values, and identity is read statically (2026-09-11)
+
+Removing the maintainer's paths left one kind of literal behind: vendor-default locations written as
+`C:\Program Files\...`. The direction taken here is the one the sibling project already uses on binary
+plugins - reverse-engineer the artefact and let its own declarations be the source of truth, read-only
+and never executing it - applied to the candidate seed.
+
+1. `expandDeclared()` resolves a location written the way its owner publishes it: `%VAR%` (Windows),
+   `${VAR}` / `$VAR` (POSIX) and `~`. The OS declares its own folders, a toolchain declares its root, and
+   nothing is executed to expand one - a reference to an unset variable resolves to nothing at all,
+   because a fabricated root could point at another user's or another product's tool. The seed now
+   carries 29 declared references across 78 locations, and **zero** literal drive paths.
+2. `pickNewest()` derives a version-rotating folder from the disk: the WDK entry says "the newest build
+   under `%ProgramFiles(x86)%\Windows Kits\10\Include` that actually carries `km`", so no
+   `10.0.26100.0` literal has to rot. On this machine it resolves to exactly the path the old literal
+   named.
+3. `declaredIdentity()` reads what a tool says about itself from its own version resource
+   (VS_VERSIONINFO: ProductName / ProductVersion / FileVersion / CompanyName / FileDescription, plus the
+   fixed-file-info copy), bounded to the exact byte ranges needed and bounds-checked field by field. It
+   spawns nothing and executes nothing. `library_detect op=scan` attaches the result to every existing
+   candidate as `declared`, and the registered object's summary carries the tool's own words - the only
+   description that stays true as versions move.
+4. Portability rule 11 enforces all of it: no literal drive path in the seed, at least five declared
+   references, `expandDeclared()` and `pickNewest()` must exist, and `declaredIdentity()` must contain no
+   spawn or exec.
+
+Verified against an independent oracle. Six binaries (Git, Node.js, signtool, MediaInfo, devenv, and the
+running interpreter) match Windows' own `VersionInfo` API exactly. Two OS components (notepad, cmd) do
+not - and that is the interesting case: the resource inside the file says `10.0.26100.8972` while
+Windows reports the servicing layer's `10.0.26100.8875`, so the reader was checked against a second,
+independent oracle: the raw UTF-16LE strings sitting in the file, which it matches. Four binaries
+(ffmpeg, ffprobe, uv, go) carry no version resource at all - Windows reports nothing for them either, so
+`null` is the correct answer rather than a guess. Failure modes were exercised too: text named `.exe`,
+a truncated image, an empty file, an ELF file and a directory each return `null`.
+
+Fault injection covers the new rules as well: a literal drive path in the seed, a seed stripped of every
+declared value, and a `declaredIdentity()` that would run the tool each turn the invariant red. Two
+faults also caught bugs in the *checker* itself: rule 11's message interpolated `${HOME}` as a template
+variable and crashed exactly when it fired, and rule 7's path-split rule was blind to a split chained
+over two lines (which the new resolver does). Both were fixed, and both are now covered by an injection.
+
+The scan was then re-measured against the pre-change baseline for this machine: **16 resolvable with 0
+lost** (baseline 14), gaining `Node.js` (on `PATH`) and `adb` (previously not in the seed at all). The
+five-stage self-check grew to 73 checks (from 65) - it now declares the running interpreter through
+`op=add`, scans it back and asserts the product name and version its own resource states, and asserts
+that a non-image declares nothing; `npm run selfcheck` reports 73/73 with the three axes at 4/4, 39/39
+and 30/30.
