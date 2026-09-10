@@ -114,7 +114,10 @@ if (!/\\uFEFF/.test(src)) problems.push("lib/index.js: the BOM policy for the ma
 if (!/replace\(\/\^\\uFEFF\//.test(src)) problems.push("lib/index.js: nothing strips a BOM when reading text back");
 
 // --- 7. PATH must be split with the platform separator ---------------------------------------
-if (/process\.env\.PATH[^\n]*split\(\s*["']\s*;/.test(src)) {
+// `\b` matters: PATHEXT is a semicolon-separated list by definition on Windows, so only PATH itself is
+// the variable that must never be split on a bare ";". The gap tolerates a chained call split over
+// lines (the resolver does exactly that), which a same-line rule would miss.
+if (/process\.env\.PATH\b(?![A-Za-z0-9_])[\s\S]{0,80}?\.split\(\s*(?:["'`]\s*;|\/\s*;\s*\/)/.test(src)) {
   problems.push('lib/index.js: PATH is split on ";" - use path.delimiter');
 }
 if (!/split\(path\.delimiter\)/.test(src)) problems.push("lib/index.js: PATH is never split with path.delimiter");
@@ -154,6 +157,25 @@ notes.push(`locale detection: ${anchored} anchored language checks, ${badTargets
 const posixFn = src.slice(src.indexOf("function posixReportDialogScript"));
 if (!/#!/.test(posixFn.slice(0, 400))) problems.push("lib/index.js: the POSIX dialog script has no shebang");
 
+// --- 10. no maintainer's disk layout baked into the shipped source ----------------------------
+// The built-in candidate seed has to work on a stranger's machine: a bare command name resolved from
+// PATH, or a location a vendor's installer uses by default. A Windows path on any drive but the system
+// drive is a leftover from the machine this plugin grew up on, and a named user profile is the same
+// thing in another form. Machine-specific locations belong in the per-install local candidate pack
+// (created with `library_detect op=add`), which is written under $DSH_HOME and never shipped.
+const foreignDrive = [...src.matchAll(/(?<![A-Za-z0-9_$])[A-BD-Za-z]:[\\/]+[^\s"'`;,)]*/g)].map((m) => m[0]);
+for (const p of foreignDrive) {
+  problems.push(`lib/index.js: "${p}" is a non-system-drive path - a personal layout must live in the local candidate pack, not in shipped source`);
+}
+const namedProfile = [...src.matchAll(/(?<![A-Za-z0-9_$])[A-Za-z]:[\\/]+Users[\\/]+[A-Za-z0-9._-]+/g)].map((m) => m[0]);
+for (const p of namedProfile) {
+  problems.push(`lib/index.js: "${p}" names a specific user profile - use os.homedir() or a caller argument`);
+}
+const seed = src.slice(src.indexOf("const DETECT_CANDIDATES"), src.indexOf("function resolveOnPath"));
+const bareNames = [...seed.matchAll(/path:\s*"([^"\\/]+)"/g)].length;
+if (bareNames < 1) problems.push("lib/index.js: the candidate seed has no bare command name - tools must be found on PATH, not only at fixed paths");
+notes.push(`machine neutrality: ${foreignDrive.length} foreign-drive path(s), ${namedProfile.length} named profile(s), ${bareNames} bare command name(s) in the seed`);
+
 // --- report ---------------------------------------------------------------------------------
 for (const n of notes) console.log(`  ${n}`);
 if (problems.length) {
@@ -163,4 +185,4 @@ if (problems.length) {
 }
 console.log("portability invariant OK - line endings LF, spawns argv-only, platform branches paired,");
 console.log("temp via os.tmpdir(), text I/O explicitly encoded, BOM policy present, PATH via path.delimiter,");
-console.log("and the locale detector anchored.");
+console.log("the locale detector anchored, and no maintainer disk layout in the shipped source.");

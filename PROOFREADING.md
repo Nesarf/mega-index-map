@@ -236,3 +236,42 @@ index each turn it red.
 
 Next round: re-run the five-stage sequence after any change to the lock or the dialog, keep the edits
 surgical and verified, and do not copy code between the two trees.
+
+## Round 7 - machine-neutral seed (2026-09-11)
+
+A review pointed at the built-in candidate list in `library_detect`: its entries named the maintainer's
+own disks outside the system drive, which read as "this plugin was grown on one person's machine". The
+claim was reproduced from the shipped source and then removed, in four parts.
+
+1. `resolveCandidatePath()` and `resolveTool()` now resolve a bare command name from `PATH` (with
+   `PATHEXT` on Windows, so `mediainfo` finds `mediainfo.exe`), and fall back to a name match inside the
+   per-install candidate pack. That is what makes a neutral seed useful: a normal install is found where
+   the user put it, and a tool kept somewhere unusual is found through the pack the user seeded.
+2. `DETECT_CANDIDATES` is a machine-neutral list: bare command names plus vendor-default install
+   locations and POSIX conventions (`/usr/bin`, `/usr/local/bin`, `/opt/homebrew/bin`, `/snap/bin`,
+   `~/.local/bin`). 16 entries.
+3. The media and device engines lost their personal paths the same way: `ffprobe`, `MediaInfo` and `adb`
+   resolve env var -> conventional location -> local pack -> `PATH`, with `FFPROBE_PATH`,
+   `MEDIAINFO_PATH` and `ADB_PATH` still overriding everything.
+4. The maintainer's own locations were dealt with by kind, and none of them is written down here. The
+   ones whose directories are already on `PATH` are found by the neutral seed with no help at all; the
+   rest went into this install's local candidate pack - six entries in
+   `$DSH_HOME/library/candidates.local.json`, added through the documented `library_detect op=add` path -
+   with the object index verified byte-identical afterwards (the pack is a separate file from the index).
+
+Verified, not asserted. A dedicated battery kept out of this tree (it is machine-specific scaffolding,
+not a shipped test) checked:
+(a) fault injection - re-introducing each fault turns `check-portability.mjs` red: a non-system-drive
+seed path, a named user profile, and a `PATH` split on `";"` (that third one exposed a same-line blind
+spot in rule 7, and the rule now also catches the regex form and a call chained over two lines);
+(b) behaviour - a bare name resolves from a synthetic `PATH` entry, and against the real home the
+neutral seed plus migrated pack resolves **16 entries with 0 lost** against the pre-change baseline of
+14, gaining `Node.js` (on `PATH`) and `adb` (previously not in the seed at all);
+(c) the engines - `ffprobe` answers through `PATH` and `MediaInfo` through the local pack, each proven in
+its own process (engine paths resolve once at registration, so an override has to precede the import),
+while masking both engines falls back to the header signature instead of claiming one.
+
+A new portability rule (10) now enforces this: no non-system-drive path and no named user profile in the
+shipped source, and at least one bare command name in the seed. `check-isolation.mjs` also stopped
+naming the sibling tree absolutely - it now resolves it beside this checkout, `MEGA_INDEX_SIBLING`
+overriding.

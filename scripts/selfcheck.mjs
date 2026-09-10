@@ -166,14 +166,14 @@ function smoke() {
 
   // Run the async battery, then judge in the caller (this function is sync-friendly: it returns a promise).
   return (async () => {
-    const rec = await call("library_record", { type: "knowledge", name: CJK, source: "%TOOLCHAIN_HOME%/\\u8a66", description: ACCENT, summary: EMOJI, tags: ["selfcheck", CJK] });
+    const rec = await call("library_record", { type: "knowledge", name: CJK, source: "selftest:/\u6e2c\u8a66", description: ACCENT, summary: EMOJI, tags: ["selfcheck", CJK] });
     check("ENCODING", "smoke", "record accepts multi-byte metadata", rec.ok === true, JSON.stringify(rec).slice(0, 120));
     const q = await call("library_query", { query: "\u6e2c\u8a66\u6a94\u6848" });
     const got = (q.results || []).find((o) => o.id === rec.id);
     check("ENCODING", "smoke", "CJK name survives record -> query", got && got.name === CJK, got && got.name);
     check("ENCODING", "smoke", "accents survive", got && got.description === ACCENT, got && got.description);
     check("ENCODING", "smoke", "astral-plane emoji survives", got && got.summary === EMOJI, got && got.summary);
-    const comb = await call("library_record", { type: "knowledge", name: COMBINING, source: "%TOOLCHAIN_HOME%" });
+    const comb = await call("library_record", { type: "knowledge", name: COMBINING, source: "selftest:/selfcheck" });
     const q2 = await call("library_query", { query: "selfcheck" });
     const got2 = (q2.results || []).find((o) => o.id === comb.id);
     check("ENCODING", "smoke", "combining mark is not normalised", got2 && got2.name === COMBINING, got2 && JSON.stringify(got2.name));
@@ -209,7 +209,7 @@ function smoke() {
 
     // A secret that appears nowhere else, so "not in the clear" cannot be satisfied by coincidence.
     const SECRET = `secret-${ACCENT}-${CJK}`;
-    const sec = await call("library_record", { type: "knowledge", name: "secret note", source: "%TOOLCHAIN_HOME%", description: SECRET, sensitive: true });
+    const sec = await call("library_record", { type: "knowledge", name: "secret note", source: "selftest:/selfcheck", description: SECRET, sensitive: true });
     const dec = await call("library_decrypt", { id: sec.id });
     check("ENCODING", "smoke", "sensitive payload decrypts intact", dec.ok === true && dec.object && dec.object.description === SECRET, JSON.stringify(dec.object && dec.object.description));
     check("ENCODING", "smoke", "sensitive payload is not in the clear", !fs.readFileSync(idxPath, "utf8").includes(SECRET), "payload found in plaintext in index.json");

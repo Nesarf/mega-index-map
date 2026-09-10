@@ -10,8 +10,9 @@
 - `library_record` - 记录一个对象（带变更检测，走 verify/confirm 判定）
 - `library_index` - 重建、去重、排序资料库，并报告冲突
 - `library_query` - 按关键词、类型、标签检索，游标分页
-- `library_detect` - 扫描并登记本机的工具与环境（内置清单是维护者那台机器的布局：不存在的路径会被
-  跳过；用 `propose`、`add` 播种你自己的布局）
+- `library_detect` - 扫描并登记本机的工具与环境（内置清单与具体机器无关：命令名从 `PATH` 解析，
+  正常安装的工具就地就能认出来；放在自选位置的工具用 `add` 写进本机候选包，`propose` 可以从某个目录
+  推荐条目；不存在的路径会被跳过）
 - `library_sniff` - 按文件头魔数判定真实类型（108 条签名），与扩展名无关
 - `library_format` - 扩充本机的格式库：`list` `scan` `learn` `add` `remove` `deps` `draft` `report` `deliver` `unseal`
 - `library_decrypt` - 按需读回被隔离的敏感对象

@@ -21,7 +21,9 @@ import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SIBLING = process.env.MEGA_INDEX_SIBLING || "%TOOLCHAIN_HOME%";
+// A sibling checkout beside this one, by convention - no machine-specific absolute path. Point
+// MEGA_INDEX_SIBLING at it when it lives elsewhere; the checks below compare the two trees either way.
+const SIBLING = process.env.MEGA_INDEX_SIBLING || path.join(path.dirname(ROOT), "sibling-checkout");
 const SIBLING_NAME = /sibling-checkout|sibling-checkout/i;
 const DEFAULT_MANIFEST = path.join(os.tmpdir(), "mega-index-map-isolation.json");
 
