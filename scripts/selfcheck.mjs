@@ -214,6 +214,37 @@ function smoke() {
     check("ENCODING", "smoke", "sensitive payload decrypts intact", dec.ok === true && dec.object && dec.object.description === SECRET, JSON.stringify(dec.object && dec.object.description));
     check("ENCODING", "smoke", "sensitive payload is not in the clear", !fs.readFileSync(idxPath, "utf8").includes(SECRET), "payload found in plaintext in index.json");
 
+    // The confirmation route for the immutable class. A record whose content changed is refused - that
+    // is the guard - and a caller holding the user's decision records it with confirm=true and a reason,
+    // which must land in the append-only log. confirm without a reason must be refused, because an
+    // unexplained confirmation is indistinguishable from the silent overwrite the guard exists to
+    // prevent. This route was added because a guard with no way through turns a wrongly recorded object
+    // into a permanent one: two harmless library records were encrypted by a mis-firing rule.
+    //
+    // This battery runs twice (smoke, traversal, proofread, traversal, smoke) against one temp library,
+    // so every assertion below holds on both passes: the second pass sees the content it wrote, which is
+    // "unchanged", and the interesting case is that nothing is overwritten silently on either pass.
+    const confName = "confirm route note";
+    const confArgs = (extra) => ({ type: "knowledge", name: confName, source: "selftest:/selfcheck", ...extra });
+    const confFirst = await call("library_record", confArgs({ description: "first version" }));
+    check("PORTABILITY", "smoke", "writing an immutable-class record is accepted, or refused as a change, but never a silent no-op", confFirst.ok === true || confFirst.changed === true, JSON.stringify(confFirst).slice(0, 120));
+    const confChanged = await call("library_record", confArgs({ description: "second version" }));
+    check("PORTABILITY", "smoke", "a changed immutable-class record is never silently overwritten", confChanged.ok === false || confChanged.changed === false, JSON.stringify(confChanged).slice(0, 140));
+    let confNoReason;
+    try {
+      confNoReason = await call("library_record", confArgs({ description: "second version", confirm: true }));
+      check("PORTABILITY", "smoke", "confirm without a reason is refused", confNoReason.changed === false, JSON.stringify(confNoReason).slice(0, 160));
+    } catch (e) {
+      check("PORTABILITY", "smoke", "confirm without a reason is refused", /reason/.test(String(e.message)), String(e.message).slice(0, 160));
+    }
+    const confReason = "selfcheck: the user's decision is simulated here, and the log must carry it";
+    const confYes = await call("library_record", confArgs({ description: "second version", confirm: true, reason: confReason }));
+    check("PORTABILITY", "smoke", "confirm with a reason records the change", confYes.ok === true, JSON.stringify(confYes).slice(0, 160));
+    const confLog = fs.readFileSync(path.join(path.dirname(idxPath), "log.jsonl"), "utf8");
+    check("PORTABILITY", "smoke", "the confirmation is traced in the append-only log", confLog.includes("record-confirm") && confLog.includes(confReason), "record-confirm entry not found");
+    const confIndex = await call("library_index", {});
+    check("PORTABILITY", "smoke", "the newest version supersedes the one it replaced", !confYes.changed || confIndex.superseded >= 1, JSON.stringify({ changed: confYes.changed, superseded: confIndex.superseded }));
+
     const exp = await call("library_export", { path: path.join(FIXTURES, "export.json") });
     check("ENCODING", "smoke", "export writes JSON", exp.ok === true, JSON.stringify(exp).slice(0, 100));
     const expBytes = fs.readFileSync(path.join(FIXTURES, "export.json"));

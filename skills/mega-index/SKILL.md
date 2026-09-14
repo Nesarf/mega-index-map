@@ -40,4 +40,11 @@ Record an object worth reusing across workspaces: a tool/script, a produced file
 `library_record` fingerprints the same-key object; on content change it routes by type:
 
 - **verify** (tool/plugin/env) - records a new version and notifies DSH to check the object's state.
-- **confirm** (immutable files: persona/image/document/table/audio/work_record/log) - does not auto-overwrite; ask the user to confirm/explain.
+- **confirm** (the immutable class: persona/image/document/table/audio/work_record/log, and the types that
+  fall through to it - knowledge/reference/workspace/file/product/other) - does not auto-overwrite. Ask
+  the user, then call again with `confirm: true` and `reason: "<what they decided>"`, which records the
+  change and writes the explanation to the append-only log as `record-confirm`. `confirm` without a
+  `reason` is refused on purpose: a confirmation that leaves no trace is the silent overwrite this route
+  exists to prevent. Run `library_index` afterwards so the newest version supersedes the one it replaces.
+- A record can be wrong for a reason that is nobody's decision - a mis-fire of the sensitive-content
+  rule, for instance - and this route is how such a record is repaired rather than left encrypted.

@@ -8,7 +8,9 @@ search and reuse them.
 
 ## Tools
 
-- `library_record` - record an object (change detection routes verify/confirm)
+- `library_record` - record an object (change detection routes verify/confirm; a change to the immutable
+  class is refused until the user decides, and is then recorded with `confirm: true` and a `reason`, which
+  the log keeps as `record-confirm`)
 - `library_index` - rebuild/dedupe/sort the library, report conflicts
 - `library_query` - search by keyword/type/tags, cursor pagination
 - `library_detect` - scan and register this machine's tools/environments. The built-in seed is
