@@ -12,7 +12,7 @@ search and reuse them.
   class is refused until the user decides, and is then recorded with `confirm: true` and a `reason`, which
   the log keeps as `record-confirm`)
 - `library_index` - rebuild/dedupe/sort the library, report conflicts
-- `library_query` - search by keyword/type/tags, cursor pagination
+- `library_query` - search by keyword/type/tags, cursor pagination. A multi-word query is matched term by term and ranked by how many terms each object covers, so several words narrow results instead of requiring that exact phrase; a single word behaves as a plain substring search.
 - `library_detect` - scan and register this machine's tools/environments. The built-in seed is
   machine-neutral: a bare command name is resolved from `PATH`, and a location is written in its owner's
   own words (`%ProgramFiles%`, `%GOROOT%`, `%ANDROID_HOME%`, `~`, `${HOME}`), with the newest installed

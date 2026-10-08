@@ -9,7 +9,7 @@
 
 - `library_record` - 记录一个对象（带变更检测，走 verify/confirm 判定；不可变类的变更会先被拒绝，等用户决定后再用 `confirm: true` 加 `reason` 记录，日志里留下 `record-confirm`）
 - `library_index` - 重建、去重、排序资料库，并报告冲突
-- `library_query` - 按关键词、类型、标签检索，游标分页
+- `library_query` - 按关键词、类型、标签检索，游标分页。多词查询按词逐个匹配、并按每个对象覆盖了几个词排序，所以多写几个词是**收窄**结果而不是要求那串字连续出现；单个词仍是普通的子串匹配。
 - `library_detect` - 扫描并登记本机的工具与环境。内置清单与具体机器无关：裸命令名从 `PATH` 解析，位置一律
   用它的所有者自己的说法来写（`%ProgramFiles%`、`%GOROOT%`、`%ANDROID_HOME%`、`~`、`${HOME}`），会随版本
   变动的目录则从磁盘上取「最新安装的那个」。放在自选位置的工具用 `add` 写进本机候选包，`propose` 可以从某个
