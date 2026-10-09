@@ -1,15 +1,23 @@
 ---
 name: mega-index
-description: Cross-workspace interop Library skill: record valuable objects (tools/files/env/products/knowledge/work records) and search past records.
-whenToUse: When persisting a tool/file/env/knowledge/record into the Library, or searching objects from other workspaces.
+description: Cross-workspace interop Library skill: ask the Library before researching, scanning or re-deriving something (a tool, an environment fact, a file's true type, a work record), and record what is worth reusing.
+whenToUse: When a task mentions something that may already be recorded (a path, a port, an endpoint, a toolchain, an earlier decision), when something reusable turns up that should be recorded, or when checking whether a directory is fully indexed.
 ---
 
 # mega-index (cross-workspace interop Library)
 
-Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers ten tools:
+Works with the `mega-index-map` plugin, which keeps a cross-workspace object library at `$DSH_HOME/library` and registers ten tools.
+
+**Ask the Library before you scan.** These tools exist so a question already answered does not cost a
+filesystem walk: `library_query` first for anything that may have been recorded, `library_detect op=list`
+before hunting for a tool, runtime or SDK, `library_sniff` before opening a file to guess its type, and
+`library_index op=audit dir=<path>` before walking a directory to see what is in it. A recorded `path` is
+meant to be used as it stands; if the object has moved, record the new version rather than hunting for it.
+A host that keeps reaching for the disk anyway can turn on the plugin's `injectPrompt: true`, which
+prepends this same advice to each session (wording replaceable at `$DSH_HOME/mega-index-prompt.md`).
 
 - `library_record` - record an object; change detection routes verify/confirm
-- `library_index` - rebuild/dedupe/sort; reports conflicts
+- `library_index` - `op=rebuild` dedupes/sorts and reports conflicts; `op=audit dir=<path>` reconciles a directory with the Library in both directions, read-only; `op=index dir=<path> confirm=true` registers the missing entries (drive roots refused)
 - `library_query` - search (keyword/type/tags, cursor pagination)
 - `library_detect` - scan and register this machine's tools/environments; `list`/`add`/`remove`/`propose` manage a local candidate pack (built-ins always win; `propose` only suggests)
 - `library_sniff` - identify a file by its header bytes (108 signatures); `dir` mode sweeps a directory

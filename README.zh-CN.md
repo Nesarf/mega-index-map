@@ -5,10 +5,19 @@
 面向 DeepSeek Harness 的跨工作区资料库（Library）。Agent 把遇到的对象——文件、工具、环境、知识、
 工作记录——记进 `$DSH_HOME/library`，任何会话都能索引、检索并复用它们。
 
+每把工具的描述都写明了「什么时候它才是更省事的那条路」——因为这决定了 agent 是去问库，还是去
+遍历文件系统：重新研究某个东西之前用 `library_query`，找工具或运行时之前用 `library_detect`，
+打开文件猜类型之前用 `library_sniff`，手动翻目录看有什么之前用 `library_index op=audit`。如果宿主
+仍然习惯性去扫盘，可开 `injectPrompt: true`（插件配置），它会把一段简短提示前置到每个会话的首条用户
+消息；想换措辞就把文本写到 `$DSH_HOME/mega-index-prompt.md`，整体替换。
+
 ## 工具
 
 - `library_record` - 记录一个对象（带变更检测，走 verify/confirm 判定；不可变类的变更会先被拒绝，等用户决定后再用 `confirm: true` 加 `reason` 记录，日志里留下 `record-confirm`）
-- `library_index` - 重建、去重、排序资料库，并报告冲突
+- `library_index` - 索引上的三件事：`op=rebuild`（默认）去重排序并报告冲突；`op=audit dir=<路径>` 只读地把
+  某目录与资料库对账，**双向**——磁盘上有、库里没记的条目，以及库里记着、路径已不存在的记录（「记过」不等于
+  「还找得到」）；`op=index dir=<路径> confirm=true` 把缺的条目登记成记录，受深度与条目上限约束，并照样套用
+  敏感内容规则。**盘根会被拒绝**：会自顾自走遍整块盘的索引器，正是这个库要替代的那种扫描
 - `library_query` - 按关键词、类型、标签检索，游标分页。多词查询按词逐个匹配、并按每个对象覆盖了几个词排序，所以多写几个词是**收窄**结果而不是要求那串字连续出现；单个词仍是普通的子串匹配。
 - `library_detect` - 扫描并登记本机的工具与环境。内置清单与具体机器无关：裸命令名从 `PATH` 解析，位置一律
   用它的所有者自己的说法来写（`%ProgramFiles%`、`%GOROOT%`、`%ANDROID_HOME%`、`~`、`${HOME}`），会随版本

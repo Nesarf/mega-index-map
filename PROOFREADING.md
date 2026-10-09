@@ -322,3 +322,50 @@ five-stage self-check grew to 73 checks (from 65) - it now declares the running 
 `op=add`, scans it back and asserts the product name and version its own resource states, and asserts
 that a non-image declares nothing; `npm run selfcheck` reports 73/73 with the three axes at 4/4, 39/39
 and 30/30.
+
+## Round 9 - the Library asks to be asked (2026-10-10)
+
+The complaint this round answers: a host with no hint about this Library answers "where is tool X" by
+walking the filesystem - minutes of I/O and a great many tokens for something already recorded here.
+
+Two mechanisms were considered, and both were built, in the order that matters:
+
+1. **The tool descriptions carry the trigger.** A tool catalogue is in context for free, so the cheapest
+   prompt is a description that says when it is the cheaper answer. `library_record`, `library_query`,
+   `library_detect`, `library_sniff` and `library_index` now open with that clause - ask the Library
+   before researching, before hunting for a tool/runtime/SDK, before opening a file to guess its type,
+   before walking a directory to see what is in it - and the skill's `description`/`whenToUse` say the
+   same. The wording follows the pattern the volcano-separator MCP tools use ("What is running right
+   now, with ages, ..."), which is what makes them get called at the right moment without any injection.
+2. **An opt-in session notice**, off by default. `injectPrompt: true` registers one `agent/pre-step`
+   hook that prepends a short notice to a session's first user message - the mechanism the disk-guard
+   plugin uses for its path discipline, verified by reading its source rather than guessed: it needs no
+   new injection point, since this plugin already declares `inject: ["tools"]`. The hook injects once per
+   session, skips subagent sessions, leaves a session that already carries user messages alone, and
+   swallows its own errors so a notice can never break a turn. The wording is replaceable wholesale at
+   `$DSH_HOME/mega-index-prompt.md`; the shipped default is ASCII/English, because this package's
+   shipping rule is ASCII-only.
+
+Also in this round, `library_index` learned the other half - making the records match the disk:
+
+- `op=audit dir=<path>` - read-only reconciliation in both directions: entries under that root with no
+  record, and records under it whose path no longer exists. This is the "recorded is not the same as
+  addressable" problem the 2026-10-06 audit left in the record, now answerable by one call.
+- `op=index dir=<path> confirm=true` - registers the missing entries, bounded by `depth` (default 2, max
+  6) and an entry ceiling, with `type`/`includeDirs` to shape what is written and the sensitive-content
+  rule still deciding what may be stored in the clear (a sensitive name is skipped and counted, never
+  bulk-encrypted). **A drive root is refused**: an indexer that would happily walk a whole disk is the
+  very scan this Library exists to replace.
+
+Verified by behaviour, not by reading: the self-check grew from 85 to **119 checks** and now walks a
+fixture tree, asserts that `op=audit` reports the unrecorded entries and finds no dead path, that
+`op=index` without `confirm` is refused *and writes nothing* (object count compared before and after),
+that a confirmed `op=index` registers the entries and types them by kind (a `.ps1` becomes a tool, a
+directory becomes a workspace), that a second audit then sees the tree as recorded, and that a record
+pointing at a path the disk does not have is reported as dead. The notice is tested through a captured
+hook: absent unless configured, registered with `injectPrompt:true`, reaching the first user message,
+**ASCII-only**, injected once per session, skipped for a session with prior user messages and for a
+subagent. Two of those checks failed on their first run for a reason worth keeping: the battery runs the
+smoke stage twice, so a shared fixture directory and reused session ids made the second pass assert on
+the first pass's state - both now carry a per-run suffix. `npm run selfcheck` reports 119/119, the three
+axes at 6/6, 83/83 and 30/30, and the four invariants stay green.

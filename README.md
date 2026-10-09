@@ -6,12 +6,24 @@ A cross-workspace Library for DeepSeek Harness. Agents record the objects they m
 environments, knowledge, work records - into `$DSH_HOME/library`, so any conversation can index,
 search and reuse them.
 
+Every tool says when it is the cheaper answer, because that is what decides whether an agent asks the
+Library or walks the filesystem: `library_query` before researching something again, `library_detect`
+before looking for a tool or runtime, `library_sniff` before opening a file to guess its type, and
+`library_index op=audit` before walking a directory to see what is in it. For a host that still reaches
+for the disk, `injectPrompt: true` (plugin config) prepends a short notice to each session's first user
+message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
+
 ## Tools
 
 - `library_record` - record an object (change detection routes verify/confirm; a change to the immutable
   class is refused until the user decides, and is then recorded with `confirm: true` and a `reason`, which
   the log keeps as `record-confirm`)
-- `library_index` - rebuild/dedupe/sort the library, report conflicts
+- `library_index` - three jobs on the index: `op=rebuild` (default) dedupes/sorts and reports conflicts;
+  `op=audit dir=<path>` reconciles a directory with the Library read-only, both directions - entries on
+  disk with no record, and records whose path no longer exists (recorded is not the same as addressable);
+  `op=index dir=<path> confirm=true` registers the missing entries, bounded by depth and an entry
+  ceiling, with the sensitive-content rule applied. A drive root is refused: an indexer that walks a whole
+  disk is the scan this Library exists to replace
 - `library_query` - search by keyword/type/tags, cursor pagination. A multi-word query is matched term by term and ranked by how many terms each object covers, so several words narrow results instead of requiring that exact phrase; a single word behaves as a plain substring search.
 - `library_detect` - scan and register this machine's tools/environments. The built-in seed is
   machine-neutral: a bare command name is resolved from `PATH`, and a location is written in its owner's

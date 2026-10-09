@@ -101,11 +101,19 @@ function stage(name, fn) {
 // ---------------------------------------------------------------- plugin loading
 let tools = null;
 let unavailable = null;
+let hooks = null;
 try {
   const mod = await import(pathToFileURL(PLUGIN).href);
   const map = new Map();
-  mod.apply({ tools: { register: (t) => map.set(t.name, t) } });
+  hooks = new Map();
+  const logger = { info: () => {}, warn: () => {} };
+  mod.apply({ tools: { register: (t) => map.set(t.name, t) }, on: (name, handler) => hooks.set(name, handler), logger });
   tools = map;
+  // The notice is opt-in, so the same module is applied a second time with it switched on: that is
+  // where the hook has to appear.
+  const noticeHooks = new Map();
+  mod.apply({ tools: { register: () => {} }, on: (name, handler) => noticeHooks.set(name, handler), logger }, { injectPrompt: true });
+  hooks.set("__notice__", noticeHooks.get("agent/pre-step") || null);
 } catch (e) {
   unavailable = `plugin not loadable here (${String((e && e.message) || e).split("\n")[0]}) - stage needs @deepseek-ai/dsh-tools`;
 }
@@ -280,6 +288,67 @@ function smoke() {
     check("PORTABILITY", "smoke", "a non-image declares nothing instead of guessing", !!junkRow && junkRow.declared === null, JSON.stringify(junkRow && junkRow.declared));
     await call("library_detect", { op: "remove", type: "tool", name: "selfcheck junk" });
     await call("library_detect", { op: "remove", type: "tool", name: "selfcheck runtime" });
+
+    // Directory reconciliation: op=audit reports both directions read-only, op=index only writes with
+    // an explicit confirmation, and a drive root is refused outright. The tree and the session ids carry
+    // a per-run suffix, because the battery runs this stage twice and neither may depend on the other.
+    const RUN = `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
+    const AUDIT_DIR = path.join(TMP, `audit-tree-${RUN}`);
+    fs.mkdirSync(path.join(AUDIT_DIR, "deeper"), { recursive: true });
+    fs.writeFileSync(path.join(AUDIT_DIR, "loose.txt"), "unrecorded\n", "utf8");
+    fs.writeFileSync(path.join(AUDIT_DIR, "run-me.ps1"), "Write-Output 'unrecorded'\n", "utf8");
+    fs.writeFileSync(path.join(AUDIT_DIR, "deeper", "inner.txt"), "unrecorded\n", "utf8");
+
+    const audit1 = await call("library_index", { op: "audit", dir: AUDIT_DIR, depth: 2 });
+    check("PORTABILITY", "smoke", "audit walks a directory and reports unrecorded entries", audit1.ok === true && audit1.missing >= 4 && audit1.scanned.entries >= 4, JSON.stringify({ scanned: audit1.scanned, missing: audit1.missing }));
+    check("PORTABILITY", "smoke", "audit writes nothing and finds no dead path yet", audit1.dead === 0 && audit1.registered === undefined, JSON.stringify({ dead: audit1.dead }));
+    const beforeIndex = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.length;
+
+    const refusedConfirm = await call("library_index", { op: "index", dir: AUDIT_DIR });
+    check("PORTABILITY", "smoke", "op=index without confirm is refused", refusedConfirm.ok === false && /confirm/.test(String(refusedConfirm.note)), String(refusedConfirm.note).slice(0, 90));
+    const afterRefusal = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.length;
+    check("PORTABILITY", "smoke", "a refused op=index writes nothing", afterRefusal === beforeIndex, `${afterRefusal} vs ${beforeIndex}`);
+
+    const indexed = await call("library_index", { op: "index", dir: AUDIT_DIR, depth: 2, includeDirs: true, confirm: true, reason: "selfcheck reconciliation" });
+    check("PORTABILITY", "smoke", "op=index registers the unrecorded entries", indexed.ok === true && indexed.registered >= 4, JSON.stringify({ registered: indexed.registered, missing: indexed.missing }));
+    const audit2 = await call("library_index", { op: "audit", dir: AUDIT_DIR, depth: 2 });
+    check("PORTABILITY", "smoke", "the second audit sees the tree as recorded", audit2.missing === 0, JSON.stringify({ missing: audit2.missing, scanned: audit2.scanned }));
+    const scriptRecord = (await call("library_query", { query: "run-me" })).results.find((o) => o.name === "run-me");
+    check("PORTABILITY", "smoke", "a registered script is typed as a tool", !!scriptRecord && scriptRecord.type === "tool", JSON.stringify(scriptRecord && scriptRecord.type));
+    const dirRecord = (await call("library_query", { query: "deeper" })).results.find((o) => o.name === "deeper");
+    check("PORTABILITY", "smoke", "a registered directory is typed as a workspace", !!dirRecord && dirRecord.type === "workspace", JSON.stringify(dirRecord && dirRecord.type));
+
+    // A dead record: the library claims a path that the disk does not have.
+    await call("library_record", { type: "file", name: "vanished", source: AUDIT_DIR, path: path.join(AUDIT_DIR, "vanished.txt") });
+    const audit3 = await call("library_index", { op: "audit", dir: AUDIT_DIR, depth: 1 });
+    check("PORTABILITY", "smoke", "audit reports a record whose path is gone", audit3.ok === true && audit3.dead >= 1 && (audit3.samples.dead || []).some((d) => d.name === "vanished"), JSON.stringify(audit3.samples.dead));
+
+    const rootRefusal = await call("library_index", { op: "audit", dir: process.platform === "win32" ? `${process.env.SystemDrive || "C:"}\\` : "/" });
+    check("PORTABILITY", "smoke", "a drive root is refused as an index scope", rootRefusal.ok === false && /refused/.test(String(rootRefusal.note)), String(rootRefusal.note).slice(0, 80));
+
+    // The opt-in notice: absent unless the config asks for it, ASCII-only, injected once per session,
+    // and never into a subagent's session.
+    check("PORTABILITY", "smoke", "the session notice stays off unless configured", !hooks.get("agent/pre-step"), "a hook was registered without injectPrompt:true");
+    const notice = hooks.get("__notice__");
+    check("PORTABILITY", "smoke", "injectPrompt:true registers the notice hook", typeof notice === "function", String(notice));
+    if (typeof notice === "function") {
+      const runNotice = (session, priorUserEvents = 0) => {
+        const messages = [{ source: { kind: "user" }, content: [{ type: "text", text: "hello" }] }];
+        const payload = { agent: { session: { id: session.id, header: session.header || {}, events: Array.from({ length: priorUserEvents }, () => ({ type: "user/message" })) } }, signal: { aborted: false } };
+        return notice(payload, async () => ({ kind: "enter", messages }));
+      };
+      const first = await runNotice({ id: `notice-${RUN}-a` });
+      const injectedText = first && first.messages && first.messages[0].content[0] && first.messages[0].content[0].text ? first.messages[0].content[0].text : "";
+      check("PORTABILITY", "smoke", "the notice reaches the first user message", injectedText.includes("mega-index-map") && injectedText.includes("library_query"), injectedText.slice(0, 80));
+      check("ASCII", "smoke", "the injected notice is ASCII-only", !/[^\x20-\x7e\n]/.test(injectedText), JSON.stringify(injectedText.match(/[^\x20-\x7e\n]/g) || []));
+      const again = await runNotice({ id: `notice-${RUN}-a` });
+      check("PORTABILITY", "smoke", "the notice is injected once per session", (again.messages[0].content || []).length === 1, JSON.stringify(again.messages[0].content));
+      const late = await runNotice({ id: `notice-${RUN}-b` }, 1);
+      check("PORTABILITY", "smoke", "a session that already has user messages is left alone", (late.messages[0].content || []).length === 1, JSON.stringify(late.messages[0].content));
+      const sub = await runNotice({ id: `notice-${RUN}-c`, header: { origin: "subagent" } });
+      check("PORTABILITY", "smoke", "a subagent session is not injected", (sub.messages[0].content || []).length === 1, JSON.stringify(sub.messages[0].content));
+    }
+    await call("library_index", { op: "rebuild" });
 
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
