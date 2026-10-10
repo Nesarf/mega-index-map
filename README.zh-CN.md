@@ -30,6 +30,11 @@
 - `library_export` - 导出为 JSON/NDJSON
 - `library_encoding` - 报告宿主编码，以及如何切到 UTF-8
 - `library_adb` - 通过 ADB 做开发者侧的 Android 设备操作
+- `library_sessions` - 读取本机自己的 DSH 会话，以及已导出的 session-log 压缩包（DSH 的归档格式：根下
+  `session*.jsonl`、子代理 `subagents/<id>/...`、附件在 `media/` 与 `files/`）。`op=list` 只列举、不读正文；
+  `op=read` 给结构化摘要，`content: true` 才给消息正文；`op=tail` 只解尾部若干帧；`op=search` 逐帧找词并只回
+  片段；`op=record` 把会话作为 `log` 记进库。会话是「一条记录一个 zstd 帧」，所以按魔数切帧逐帧解码——
+  撕尾只统计不猜。全程只读本机：不上传，也不改任何文件
 
 ## 安装
 

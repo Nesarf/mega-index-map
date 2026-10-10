@@ -26,6 +26,7 @@ prepends this same advice to each session (wording replaceable at `$DSH_HOME/meg
 - `library_export` - export to JSON/NDJSON
 - `library_encoding` - report the host encoding + how to switch to UTF-8
 - `library_adb` - developer-side Android device operations over ADB
+- `library_sessions` - read DSH's own sessions (and exported session-log ZIPs): `list` enumerates, `read` gives a bounded structural summary (`content: true` for the text), `tail` decodes only the last frames, `search` scans frames for a phrase, `record` writes a session into the Library as a log
 
 ## When to record
 

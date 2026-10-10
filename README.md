@@ -39,6 +39,14 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
 - `library_export` - export to JSON/NDJSON
 - `library_encoding` - report the host encoding and how to switch to UTF-8
 - `library_adb` - developer-side Android device operations over ADB
+- `library_sessions` - read this machine's own DSH sessions, and any exported session-log ZIP archive
+  (DSH's archive format: `session*.jsonl` at the root, `subagents/<id>/...`, attachments under `media/`
+  and `files/`). `op=list` enumerates sessions and archive members without reading transcripts;
+  `op=read` returns a structural summary, and the message text only with `content: true`; `op=tail`
+  decodes just the last frames; `op=search` scans frames for a phrase and returns snippets; `op=record`
+  writes a session into the Library as a `log`. Sessions are stored as one zstd frame per record, so
+  frames are located by the zstd magic and decoded one at a time - a torn tail is counted, never guessed.
+  Local reads only: nothing is uploaded, no file is modified
 
 ## Install
 

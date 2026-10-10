@@ -42,6 +42,7 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import { zstdCompressSync } from "node:zlib";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
@@ -349,6 +350,102 @@ function smoke() {
       check("PORTABILITY", "smoke", "a subagent session is not injected", (sub.messages[0].content || []).length === 1, JSON.stringify(sub.messages[0].content));
     }
     await call("library_index", { op: "rebuild" });
+
+    // DSH's own session store: one zstd frame per record, appended, with a torn tail possible. The
+    // fixture is written the way the host writes it, so the frame-splitting path is what gets tested.
+    const SES_WS = path.join(HOME, "sessions", "--E-selfcheck-ws--");
+    const SES_DIR = path.join(SES_WS, "session-11111111-2222-3333-4444-555555555555");
+    fs.mkdirSync(SES_DIR, { recursive: true });
+    const now = Date.now();
+    const sesRecords = [
+      { type: "session", seq: 0, time: now - 60000, data: { id: "11111111-2222-3333-4444-555555555555", version: 3, createdAt: new Date(now - 60000).toISOString(), cwd: "E:\selfcheck-ws", agentPreset: "selfcheck" } },
+      { type: "session/title", seq: 1, time: now - 50000, data: { title: "selfcheck fixture session", messageSeqs: [2], source: "llm" } },
+      { type: "user/message", seq: 2, time: now - 40000, data: { role: "user", id: "m1", source: { kind: "user" }, content: [{ type: "text", text: "fixture question about zstd frames" }] } },
+      { type: "assistant/message", seq: 3, time: now - 30000, data: { turn: 1, step: 0, message: { role: "assistant", id: "m2", content: [{ type: "text", text: "fixture answer mentioning 162 frames" }] }, usage: {} } },
+      { type: "tool/call", seq: 4, time: now - 20000, data: { turn: 1, step: 1, callId: "c1", name: "fixture_tool", arguments: { a: 1 } } },
+      { type: "tool/result", seq: 5, time: now - 10000, data: { turn: 1, step: 1, message: { role: "tool", content: [{ type: "text", text: "fixture tool output" }] } } },
+    ];
+    const sesFrames = sesRecords.map((r) => zstdCompressSync(Buffer.from(JSON.stringify(r), "utf8")));
+    const sesTorn = sesFrames[sesFrames.length - 1].subarray(0, Math.max(1, Math.floor(sesFrames[sesFrames.length - 1].length / 2)));
+    const sesFile = path.join(SES_DIR, "session.jsonl.zstd");
+    fs.writeFileSync(sesFile, Buffer.concat([...sesFrames, sesTorn]));
+
+    const sesList = await call("library_sessions", { op: "list", dir: path.join(HOME, "sessions"), titles: true });
+    const sesEntry = (sesList.entries || []).find((e) => e.path === sesFile);
+    check("PORTABILITY", "smoke", "sessions list finds a session and reads its header without the transcript", sesList.ok === true && !!sesEntry && sesEntry.id === "11111111-2222-3333-4444-555555555555" && sesEntry.cwd === "E:\selfcheck-ws", JSON.stringify(sesEntry || {}).slice(0, 140));
+    check("PORTABILITY", "smoke", "sessions list reads the session's own title record", !!sesEntry && sesEntry.title === "selfcheck fixture session", sesEntry && String(sesEntry.title));
+    check("PORTABILITY", "smoke", "a torn trailing frame is counted, not guessed at", !!sesEntry && sesEntry.framesUnreadable >= 1, sesEntry && `frames=${sesEntry.frames} unreadable=${sesEntry.framesUnreadable}`);
+
+    const sesRead = await call("library_sessions", { op: "read", target: SES_DIR });
+    check("PORTABILITY", "smoke", "read decodes every frame of a session", sesRead.ok === true && sesRead.frames >= sesRecords.length && sesRead.records >= sesRecords.length, JSON.stringify({ frames: sesRead.frames, records: sesRead.records }));
+    check("PORTABILITY", "smoke", "read returns structure without content by default", sesRead.ok === true && (sesRead.messages || []).length === 0 && (sesRead.types || []).some((t) => t.type === "user/message"), JSON.stringify(sesRead.types || []).slice(0, 120));
+    const sesContent = await call("library_sessions", { op: "read", target: SES_DIR, content: true, maxChars: 2000 });
+    const joined = (sesContent.messages || []).map((m) => m.text).join(" | ");
+    check("PORTABILITY", "smoke", "content:true returns the message text", /fixture question about zstd frames/.test(joined) && /fixture answer mentioning 162 frames/.test(joined), joined.slice(0, 120));
+    const sesTail = await call("library_sessions", { op: "tail", target: SES_DIR, frames: 2 });
+    check("PORTABILITY", "smoke", "tail decodes only the trailing frames", sesTail.ok === true && sesTail.records <= 2 && sesTail.frames >= sesRecords.length, JSON.stringify({ records: sesTail.records, frames: sesTail.frames }));
+    const sesSearch = await call("library_sessions", { op: "search", dir: path.join(HOME, "sessions"), query: "162 frames" });
+    check("PORTABILITY", "smoke", "search finds a phrase by scanning frames", sesSearch.ok === true && (sesSearch.hits || []).some((h) => /162 frames/.test(h.snippet)), JSON.stringify(sesSearch.hits || []).slice(0, 120));
+    const sesMiss = await call("library_sessions", { op: "read", target: path.join(HOME, "sessions", "does-not-exist") });
+    check("PORTABILITY", "smoke", "a missing session is refused, not invented", sesMiss.ok === false, JSON.stringify(sesMiss).slice(0, 100));
+    const sesRecorded = await call("library_sessions", { op: "record", target: SES_DIR, content: true, maxChars: 3000 });
+    check("PORTABILITY", "smoke", "record writes a session into the Library", sesRecorded.ok === true && sesRecorded.recorded && sesRecorded.recorded.name === "selfcheck fixture session", JSON.stringify(sesRecorded.recorded || {}).slice(0, 140));
+    const sesFound = (await call("library_query", { query: "selfcheck fixture session" })).results.find((o) => o.name === "selfcheck fixture session");
+    check("PORTABILITY", "smoke", "the recorded session is searchable afterwards", !!sesFound && sesFound.type === "log", JSON.stringify(sesFound && sesFound.type));
+
+    // An exported session log is a ZIP (DSH's "Download this Session log"), with session*.jsonl members at
+    // the root and subagent logs below subagents/. Built here by hand as stored entries, so the archive
+    // branch is exercised on a machine that has never exported one.
+    const crc32Of = (buf) => {
+      let c = ~0;
+      for (const b of buf) {
+        c ^= b;
+        for (let k = 0; k < 8; k++) c = (c >>> 1) ^ (0xEDB88320 & -(c & 1));
+      }
+      return (~c) >>> 0;
+    };
+    const storedZip = (entries) => {
+      const locals = [];
+      const central = [];
+      let offset = 0;
+      for (const e of entries) {
+        const name = Buffer.from(e.name, "utf8");
+        const crc = crc32Of(e.data);
+        const local = Buffer.alloc(30);
+        local.writeUInt32LE(0x04034b50, 0); local.writeUInt16LE(20, 4);
+        local.writeUInt32LE(crc, 14); local.writeUInt32LE(e.data.length, 18); local.writeUInt32LE(e.data.length, 22);
+        local.writeUInt16LE(name.length, 26);
+        locals.push(local, name, e.data);
+        const cd = Buffer.alloc(46);
+        cd.writeUInt32LE(0x02014b50, 0); cd.writeUInt16LE(20, 4); cd.writeUInt16LE(20, 6);
+        cd.writeUInt32LE(crc, 16); cd.writeUInt32LE(e.data.length, 20); cd.writeUInt32LE(e.data.length, 24);
+        cd.writeUInt16LE(name.length, 28); cd.writeUInt32LE(offset, 42);
+        central.push(cd, name);
+        offset += 30 + name.length + e.data.length;
+      }
+      const centralBuf = Buffer.concat(central);
+      const eocd = Buffer.alloc(22);
+      eocd.writeUInt32LE(0x06054b50, 0);
+      eocd.writeUInt16LE(entries.length, 8); eocd.writeUInt16LE(entries.length, 10);
+      eocd.writeUInt32LE(centralBuf.length, 12); eocd.writeUInt32LE(offset, 16);
+      return Buffer.concat([...locals, centralBuf, eocd]);
+    };
+    const zipPath = path.join(HOME, "sessions", "exported-log.zip");
+    const NL = String.fromCharCode(10);
+    const zipLog = [sesRecords[0], sesRecords[2], sesRecords[3]].map((r) => JSON.stringify(r)).join(NL) + NL;
+    fs.writeFileSync(zipPath, storedZip([
+      { name: "session.jsonl", data: Buffer.from(zipLog, "utf8") },
+      { name: "subagents/abc/session.jsonl", data: Buffer.from(JSON.stringify(sesRecords[0]) + NL, "utf8") },
+      { name: "media/pic.png", data: Buffer.from([0x89, 0x50, 0x4e, 0x47]) },
+    ]));
+
+    const zipList = await call("library_sessions", { op: "list", dir: path.join(HOME, "sessions") });
+    const zipEntry = (zipList.entries || []).find((e) => e.kind === "archive");
+    check("PORTABILITY", "smoke", "an exported session-log archive is listed with its session members", !!zipEntry && zipEntry.sessionLogs.length === 2 && zipEntry.attachments === 1, JSON.stringify(zipEntry || {}).slice(0, 140));
+    const zipRead = await call("library_sessions", { op: "read", target: `${zipPath}#session.jsonl`, content: true, maxChars: 2000 });
+    check("PORTABILITY", "smoke", "a session log inside an archive is read through #member", zipRead.ok === true && zipRead.records >= 3 && /fixture question about zstd frames/.test((zipRead.messages || []).map((m) => m.text).join(" ")), JSON.stringify({ ok: zipRead.ok, records: zipRead.records }) );
+    const zipSearch = await call("library_sessions", { op: "search", dir: path.join(HOME, "sessions"), query: "fixture answer" });
+    check("PORTABILITY", "smoke", "search reaches inside exported archives too", (zipSearch.hits || []).some((h) => /exported-log\.zip#/.test(h.source)), JSON.stringify((zipSearch.hits || []).map((h) => h.source).slice(0, 3)));
 
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [

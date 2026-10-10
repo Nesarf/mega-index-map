@@ -95,11 +95,14 @@ if (/["'`]\/tmp\//.test(src) || /["'`][A-Za-z]:\\\\Temp/i.test(src)) {
 
 // --- 5. explicit encodings for text I/O ------------------------------------------------------
 // Judge each call by its whole LINE, so a binary read wrapped in zipReadEntry(...) is recognised as the
-// binary operation it is instead of being read as an unencoded text write.
+// binary operation it is instead of being read as an unencoded text write. An explicit `null` encoding
+// counts as declaring binary on purpose, which is exactly what this rule asks a call to do.
 const ioLines = src.split("\n")
   .map((line, i) => ({ line, no: i + 1 }))
   .filter(({ line }) => /fs\.(readFileSync|writeFileSync)\(/.test(line));
-const binaryOk = (line) => /utf8|hex|base64/.test(line) || /zipReadEntry|zipBuffer|Buffer\.|copyFileSync|buf\)|\.tar/.test(line);
+const binaryOk = (line) => /utf8|hex|base64/.test(line)
+  || /zipReadEntry|zipBuffer|Buffer\.|copyFileSync|buf\)|\.tar/.test(line)
+  || /\b(readFileSync|writeFileSync)\([^)]*\bnull\b/.test(line);
 const unencoded = ioLines.filter(({ line }) => !binaryOk(line));
 if (unencoded.length) {
   for (const { line, no } of unencoded) {

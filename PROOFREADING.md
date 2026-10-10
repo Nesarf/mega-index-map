@@ -369,3 +369,50 @@ subagent. Two of those checks failed on their first run for a reason worth keepi
 smoke stage twice, so a shared fixture directory and reused session ids made the second pass assert on
 the first pass's state - both now carry a per-run suffix. `npm run selfcheck` reports 119/119, the three
 axes at 6/6, 83/83 and 30/30, and the four invariants stay green.
+
+## Round 10 - reading DSH's own sessions (2026-10-10)
+
+What was asked for: let this Library unpack and read every DSH session, archived ones included, so a past
+conversation does not have to be re-derived or re-scanned.
+
+The format had to be discovered before anything could be written, and the discovery is the interesting
+part. The store is 246 files in `$DSH_HOME/sessions/<workspace>/<session-id>/session.jsonl.zstd`, 524 MB,
+and **a public zstd decoder reads one record out of it**: on a 56 MB session `zstdDecompressSync` and a
+streaming `createZstdDecompress()` both stopped at the first frame ("Unknown frame descriptor"), while
+locating frames by the zstd magic `28 B5 2F FD` and decoding them one at a time read 162,050 of 162,050
+frames - 111.7 MB of JSONL, 220,881 records, ~7 s. The host does the same thing internally
+(`dsh-session-persistence-jsonl` carries a private multi-frame decoder for exactly this reason). Record
+shapes were learned from the files rather than assumed: the session header carries its fields at the top
+level, `user/message.data.content` and `assistant/message.data.message.content` hold `[{type,text}]`
+blocks, `tool/call` holds a name and arguments, and `session/title` gives each session its own title.
+An archive, in DSH's words, is a ZIP from "Download this Session log": `session*.jsonl` at the root,
+subagents under `subagents/<id>/`, attachments under `media/` and `files/`.
+
+So the eleventh tool is `library_sessions`, with five bounded ops: `list` (header and title per session,
+no transcript), `read` (structural summary; text only with `content: true`), `tail` (last frames only),
+`search` (frame-by-frame, snippets only), `record` (writes a session into the Library as a `log`). Every
+op is capped by records, characters, files, frames and hits; a frame that will not decode is counted, and
+a head-read that ends mid-frame is reported as a cut frame rather than a corrupt one. Plain reads: nothing
+is uploaded, no session file is modified.
+
+Verified twice over. The self-check grew from 119 to **147 checks** (three axes 6/6, 111/111, 30/30) and
+now writes a session the way the host writes one - one zstd frame per record plus a deliberately torn
+trailing frame - then asserts the header, the title, the torn-frame count, structure-without-content,
+`content:true` text, tail-only decoding, phrase search, a missing session being refused, recording into
+the Library, and a hand-built exported ZIP read through `#member` (both listing its session members and
+searching inside it). Against the real store, read-only: **246 sessions listed in 6.5 s, 246 with a
+header cwd, 233 with a title, 0 unreadable frames**; `read` of a 3372-frame session in 131 ms with record
+types and a time range; `tail` in 121 ms; `search` finding 30 hits across 49,263 records in 23 files in
+1.6 s; and **0 of 246 session files changed** by the run (the real library was not touched - the test ran
+against a temp home and only passed the real store as a read target).
+
+Three of those bugs were only visible on the real store, which is why the real store was part of the
+verification: the session header's fields sit on the record itself, so reading `record.data` gave 246
+sessions with a null `cwd`, `createdAt` and `formatVersion`; the list path reads only the first 256 KB, so
+its final frame is cut mid-frame by construction and 170 sessions were reported as having unreadable data;
+and the "no session store here" guard asked for `args.dir`, which `read`/`tail`/`record` do not take, so
+they refused any target they were given. A fourth was caught by the self-check rather than the store:
+`zstdDecompressSync` had never been imported, and the per-frame try/catch swallowed the resulting
+ReferenceError as "unreadable" - a silent zero that reads like "no such session". Besides importing it,
+the reader now states the runtime capability up front (Node v23.8+, or v22.15+) instead of reporting every
+frame as unreadable, and a test that swallows an error now has a test that would notice.
