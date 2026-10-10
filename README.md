@@ -44,9 +44,28 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
   and `files/`). `op=list` enumerates sessions and archive members without reading transcripts;
   `op=read` returns a structural summary, and the message text only with `content: true`; `op=tail`
   decodes just the last frames; `op=search` scans frames for a phrase and returns snippets; `op=record`
-  writes a session into the Library as a `log`. Sessions are stored as one zstd frame per record, so
+  writes a session into the Library as a `log`; `op=bootstrap` runs the first-run pass described below;
+  `op=status` reports it. Sessions are stored as one zstd frame per record, so
   frames are located by the zstd magic and decoded one at a time - a torn tail is counted, never guessed.
   Local reads only: nothing is uploaded, no file is modified
+
+### First run: mine the history before claiming to be installed
+
+On its first start the plugin reads every session it can find and mines what a Library actually indexes -
+tools that resolve on this machine, paths that exist, local endpoints, environment variables that are set,
+and file formats this library does not know yet. Everything else in a conversation is dropped: a
+246-session store (measured: 523 MB compressed, 1,509 MB decompressed, 1,478,647 records, read in 70.8 s)
+leaves a few thousand verified facts rather than a transcript archive. Mined rows carry
+`source: session-mining` with a name derived from the fact itself, so a later pass replaces them instead
+of piling up.
+
+`bootstrap` decides how it runs: `blocking` (default - this Library registers its tools only after the
+pass finishes), `gate` (it starts in the background and `op=status` reports it), or `off` (only an
+explicit `op=bootstrap` runs it). `bootstrapBudgetMs` (default 300000) stops a pass cleanly, so a very
+long history finishes over several starts instead of holding the host open, and it resumes where it
+stopped. Every step is appended to `$DSH_HOME/library/bootstrap-progress.jsonl` with the current state in
+`bootstrap-state.json` - one line per session, naming the file being read - so progress is visible while
+it happens rather than only at the end.
 
 ## Install
 

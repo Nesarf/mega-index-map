@@ -108,12 +108,12 @@ try {
   const map = new Map();
   hooks = new Map();
   const logger = { info: () => {}, warn: () => {} };
-  mod.apply({ tools: { register: (t) => map.set(t.name, t) }, on: (name, handler) => hooks.set(name, handler), logger });
+  await mod.apply({ tools: { register: (t) => map.set(t.name, t) }, on: (name, handler) => hooks.set(name, handler), logger }, { bootstrap: "off" });
   tools = map;
   // The notice is opt-in, so the same module is applied a second time with it switched on: that is
   // where the hook has to appear.
   const noticeHooks = new Map();
-  mod.apply({ tools: { register: () => {} }, on: (name, handler) => noticeHooks.set(name, handler), logger }, { injectPrompt: true });
+  await mod.apply({ tools: { register: () => {} }, on: (name, handler) => noticeHooks.set(name, handler), logger }, { injectPrompt: true, bootstrap: "off" });
   hooks.set("__notice__", noticeHooks.get("agent/pre-step") || null);
 } catch (e) {
   unavailable = `plugin not loadable here (${String((e && e.message) || e).split("\n")[0]}) - stage needs @deepseek-ai/dsh-tools`;
@@ -446,6 +446,42 @@ function smoke() {
     check("PORTABILITY", "smoke", "a session log inside an archive is read through #member", zipRead.ok === true && zipRead.records >= 3 && /fixture question about zstd frames/.test((zipRead.messages || []).map((m) => m.text).join(" ")), JSON.stringify({ ok: zipRead.ok, records: zipRead.records }) );
     const zipSearch = await call("library_sessions", { op: "search", dir: path.join(HOME, "sessions"), query: "fixture answer" });
     check("PORTABILITY", "smoke", "search reaches inside exported archives too", (zipSearch.hits || []).some((h) => /exported-log\.zip#/.test(h.source)), JSON.stringify((zipSearch.hits || []).map((h) => h.source).slice(0, 3)));
+
+    // The first-run pass mines what a Library indexes out of the history - and only what exists here.
+    // The fixture session names a command that resolves on this machine, a real directory, a path that is
+    // NOT here, a local port, a variable that is set and an extension this library does not know; the
+    // missing path must never become a record.
+    const BT = String.fromCharCode(96);
+    const mineText = [
+      `the tool ${BT}node${BT} is what runs this,`,
+      `and ${FIXTURES} is a real directory.`,
+      `a file that is not here: ${path.join(FIXTURES, "no-such-tool-xyz.exe")}`,
+      `and the port localhost:8123, with %DSH_HOME% set and a ${BT}.qqq9${BT} format in play.`,
+    ].join(" ");
+    const mineRecord = { type: "user/message", seq: 9, time: Date.now(), data: { role: "user", content: [{ type: "text", text: mineText }] } };
+    const mineDir = path.join(HOME, "sessions", "--E-mine--", "session-99999999-8888-7777-6666-555555555555");
+    fs.mkdirSync(mineDir, { recursive: true });
+    fs.writeFileSync(path.join(mineDir, "session.jsonl.zstd"), zstdCompressSync(Buffer.from(JSON.stringify(mineRecord), "utf8")));
+
+    const mined = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
+    check("PORTABILITY", "smoke", "the first-run pass reads the history and reports what it found", mined.ok === true && mined.phase === "complete" && mined.sessionsTotal >= 2 && mined.found >= 4, JSON.stringify({ phase: mined.phase, total: mined.sessionsTotal, found: mined.found, added: mined.added }));
+    const minedQuery = await call("library_query", { query: "mined", limit: 100 });
+    const minedRows = (minedQuery.results || []).filter((o) => o.source === "session-mining");
+    const minedNames = minedRows.map((o) => o.name);
+    check("PORTABILITY", "smoke", "a command that resolves on this machine is mined as a tool", minedNames.includes("node"), JSON.stringify(minedNames).slice(0, 140));
+    check("PORTABILITY", "smoke", "a real directory is mined, with its path", minedRows.some((o) => o.type === "env" && o.path && o.path.includes("fixtures")), JSON.stringify(minedRows.filter((o) => o.type === "env").map((o) => o.path)).slice(0, 140));
+    check("PORTABILITY", "smoke", "a path that is not on this machine is NOT mined", !minedRows.some((o) => String(o.path || "").includes("no-such-tool-xyz")), JSON.stringify(minedRows.map((o) => o.path)).slice(0, 160));
+    check("PORTABILITY", "smoke", "a local endpoint is recorded without probing it", minedNames.includes("localhost:8123"), JSON.stringify(minedNames).slice(0, 140));
+    check("PORTABILITY", "smoke", "a variable that is set is mined, and one that is not is left out", minedNames.includes("%DSH_HOME%") && !minedNames.some((n) => n.includes("SELFCHECK_UNSET")), JSON.stringify(minedNames.filter((x) => x.startsWith("%"))));
+    check("PORTABILITY", "smoke", "an unknown format is recorded as a lead, not as a known format", minedNames.includes(".qqq9") && minedRows.some((o) => o.type === "reference" && o.name === ".qqq9"), JSON.stringify(minedRows.filter((o) => o.type === "reference").map((o) => o.name)));
+
+    const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
+    const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
+    check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterRows.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
+    const status = await call("library_sessions", { op: "status" });
+    check("PORTABILITY", "smoke", "status reports the pass", status.ok === true && status.state && ["complete", "partial", "mining"].includes(status.state.phase), JSON.stringify(status.state && status.state.phase));
+    const progressLines = fs.readFileSync(status.progress, "utf8").split(String.fromCharCode(10)).filter(Boolean).length;
+    check("PORTABILITY", "smoke", "the pass is visible step by step, not only at the end", progressLines >= 3, `${progressLines} line(s)`);
 
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [

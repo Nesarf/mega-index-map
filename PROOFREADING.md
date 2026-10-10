@@ -416,3 +416,63 @@ they refused any target they were given. A fourth was caught by the self-check r
 ReferenceError as "unreadable" - a silent zero that reads like "no such session". Besides importing it,
 the reader now states the runtime capability up front (Node v23.8+, or v22.15+) instead of reporting every
 frame as unreadable, and a test that swallows an error now has a test that would notice.
+
+## Round 11 - first-run mining of the session history (2026-10-10)
+
+The requirement: when the plugin lands on a machine, read the whole session history first and record what
+matters, and only then consider itself installed - and do that with the progress visible step by step.
+Two corrections to the plan came from the person asking, and both were the right call: do **not** record
+the sessions themselves (a 246-session store is 1,509 MB of transcript, and the Library is one JSON file),
+and do not treat the conversations as the payload - mine them for what a Library indexes. A single
+conversation rarely contains much that is useful; reading all of them is how nothing gets missed.
+
+So the pass is existence-filtered. From every record it extracts: paths that **are on this machine**
+(directories, executables, files), command names that resolve through PATH (bare names taken from
+backticked spans, or names written with an executable extension), `localhost:PORT` endpoints (recorded,
+never probed - this plugin does no network I/O), environment variables that **are set**, and file formats
+this library does not know yet as leads pointing at `library_format op=propose`/`op=learn`. Everything
+else is dropped. Mined rows carry `source: session-mining` and a name taken from the fact itself, so a
+second pass replaces its own earlier rows instead of accumulating - measured: a second pass over the same
+40 sessions reported `added=0, updated=2783`, row count unchanged.
+
+Measured on this machine, all of it real data: the whole store is 246 sessions, 523 MB compressed,
+1,509 MB decompressed, 928,448 zstd frames (0 unreadable), 1,478,647 records, read end to end in 70.8 s.
+Mining 40 of those sessions (105,629 records) produced 2,783 facts in 71 s, of which 2,154 are verified
+tools, paths and files: `ffmpeg -> D:\ffmpeg-8.1.1-essentials_build\bin\ffmpeg.exe`,
+`uvx -> E:\DaShaoHuo\uv\uvx.exe`, `hindsight-daemon -> E:\DaShaoHuo\scripts\hindsight-daemon.ps1`,
+`hindsight-daemon.ps1`, `bl -> E:\npm-global\bl.CMD`, `%TEMP% -> E:\DaShaoHuo\cache\tmp`, and the shared
+directories `E:\DaShaoHuo\{downloads,cache,cache\tmp,cache\npm}`.
+
+Getting the extraction honest took four rounds, each measured rather than argued:
+1. Paths arrived with doubled separators (the host escapes them in JSON), so `D:\JBridge\jBridger.exe`
+   was recorded verbatim; they are now normalised, and installer leftovers (`uninstall.exe`,
+   `unins000.exe`) are filtered out.
+2. The first extension rule accepted a bare `.ext` and filled the leads with **CSS class names**
+   (`.btn`, `.browser`, `.close`).
+3. Requiring a stem fixed that and immediately admitted **decimals and host names** (`.05`, `.310z`,
+   `.cn`), so the stem and the extension must both contain a letter and known TLDs are excluded.
+4. Leads still contained `arr.unshift`, `doc.init` - **code members are not file formats** - so a bare
+   `name.ext` now needs a file-ish stem (a digit, dash or underscore) and only backticked mentions are
+   accepted otherwise. The lead count went 2,661 -> 1,500 -> 1,455 -> 629 while the verified half stayed
+   intact. Known formats leaking back in as "unknown" (`.jpg`, `.png`, `.mp3`) turned out to be the filter
+   asking the wrong question: it now consults `EXT_FAMILY`, this plugin's own answer to "is this
+   extension known". A stat cache (the same candidate recurs across sessions) took the pass from 141 s to
+   71 s on the same input.
+
+The pass is budgeted and resumable: `bootstrapBudgetMs` (default 300 s) stops it cleanly at a session
+boundary and the marker (`path -> size:mtime`) means the next start continues instead of starting over.
+Progress is written before each session is read - `$DSH_HOME/library/bootstrap-progress.jsonl` (one line
+per session, naming the file) and `bootstrap-state.json` (the current phase and counters) - verified
+counted rather than assumed: 5 fixture sessions produced 7 lines and 40 real sessions produced 42, i.e.
+one initial line, one per session, one final. `bootstrap` is `blocking` by default (tools register only
+after the pass), with `gate` and `off` available; in every mode the host is never held open beyond the
+budget, and a failure is recorded in the state file and reported by `op=status` rather than taking the
+host down.
+
+Self-check: 147 -> **167 checks** (three axes 6/6, 131/131, 30/30). The fixture session names a command
+that resolves here, a real directory, a path that is **not** here, a port, a variable that is set and a
+backticked unknown extension, and the checks assert each of those outcomes - including that the missing
+path is never recorded and that a second pass replaces rather than piles up. Two of the new checks failed
+first for instructive reasons: `TEXT_EXTENSIONS` is an array, not a Set (the reader had assumed `.has`),
+and the extension fixture had to name the format the way a session really would, in backticks, because a
+bare `.ext` in prose is exactly what the tightened rule now refuses.
