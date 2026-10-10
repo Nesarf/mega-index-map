@@ -478,6 +478,9 @@ function smoke() {
     const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
     check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterRows.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
+    // And it must find nothing to read at all: the resume marker has to survive the pass that wrote it,
+    // otherwise every run silently re-reads the whole history (that regression existed once).
+    check("PORTABILITY", "smoke", "the marker survives, so a second pass has nothing pending", again.sessionsTotal === 0 && again.records === 0, JSON.stringify({ pending: again.sessionsTotal, records: again.records }));
     const status = await call("library_sessions", { op: "status" });
     const hostOffset = -new Date().getTimezoneOffset();
     const expectedOffset = (hostOffset >= 0 ? "+" : "-") + String(Math.floor(Math.abs(hostOffset) / 60)).padStart(2, "0") + ":" + String(Math.abs(hostOffset) % 60).padStart(2, "0");
