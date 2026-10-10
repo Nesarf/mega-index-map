@@ -72,7 +72,11 @@ it happens rather than only at the end.
 ## Install
 
 ```powershell
+# first install
 dsh plugin --profile web add github:Nesarf/mega-index-map
+# upgrade an installed copy - `add` would report "resolution step is skipped" and leave the
+# lockfile on the old commit, so an upgrade needs `update` by package name
+dsh plugin --profile web update mega-index-map
 ```
 
 ## Notes

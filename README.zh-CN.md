@@ -55,7 +55,11 @@
 ## 安装
 
 ```powershell
+# 首次安装
 dsh plugin --profile web add github:Nesarf/mega-index-map
+# 升级已安装的副本——用 `add` 只会报 "resolution step is skipped"、lockfile 仍钉在旧 commit，
+# 升级必须用 `update` 加包名
+dsh plugin --profile web update mega-index-map
 ```
 
 ## 说明
