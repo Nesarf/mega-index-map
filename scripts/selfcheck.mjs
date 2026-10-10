@@ -456,7 +456,8 @@ function smoke() {
       `the tool ${BT}node${BT} is what runs this,`,
       `and ${FIXTURES} is a real directory.`,
       `a file that is not here: ${path.join(FIXTURES, "no-such-tool-xyz.exe")}`,
-      `and the port localhost:8123, with %DSH_HOME% set and a ${BT}.qqq9${BT} format in play.`,
+      `and the port localhost:8123, with %DSH_HOME% set, a ${BT}.qqq9${BT} format mentioned once,`,
+      `and a ${BT}.qqq8${BT} format mentioned ${BT}.qqq8${BT} twice.`,
     ].join(" ");
     const mineRecord = { type: "user/message", seq: 9, time: Date.now(), data: { role: "user", content: [{ type: "text", text: mineText }] } };
     const mineDir = path.join(HOME, "sessions", "--E-mine--", "session-99999999-8888-7777-6666-555555555555");
@@ -473,7 +474,7 @@ function smoke() {
     check("PORTABILITY", "smoke", "a path that is not on this machine is NOT mined", !minedRows.some((o) => String(o.path || "").includes("no-such-tool-xyz")), JSON.stringify(minedRows.map((o) => o.path)).slice(0, 160));
     check("PORTABILITY", "smoke", "a local endpoint is recorded without probing it", minedNames.includes("localhost:8123"), JSON.stringify(minedNames).slice(0, 140));
     check("PORTABILITY", "smoke", "a variable that is set is mined, and one that is not is left out", minedNames.includes("%DSH_HOME%") && !minedNames.some((n) => n.includes("SELFCHECK_UNSET")), JSON.stringify(minedNames.filter((x) => x.startsWith("%"))));
-    check("PORTABILITY", "smoke", "an unknown format is recorded as a lead, not as a known format", minedNames.includes(".qqq9") && minedRows.some((o) => o.type === "reference" && o.name === ".qqq9"), JSON.stringify(minedRows.filter((o) => o.type === "reference").map((o) => o.name)));
+    check("PORTABILITY", "smoke", "an unknown format is recorded as a lead, not as a known format", minedRows.some((o) => o.type === "reference" && o.name === ".qqq8"), JSON.stringify(minedRows.filter((o) => o.type === "reference").map((o) => o.name)));
 
     const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
@@ -491,6 +492,25 @@ function smoke() {
     const progressLines = fs.readFileSync(status.progress, "utf8").split(String.fromCharCode(10)).filter(Boolean).length;
     check("PORTABILITY", "smoke", "the pass is visible step by step, not only at the end", progressLines >= 3, `${progressLines} line(s)`);
 
+
+    // A lead is evidence, not a coincidence: one mention is dropped, two are recorded. (The fixture text
+    // above mentions .qqq9 once and .qqq8 twice.)
+    check("PORTABILITY", "smoke", "a format lead seen once is not recorded", !minedNames.includes(".qqq9"), JSON.stringify(minedNames.filter((n) => n.startsWith(".qqq"))));
+    check("PORTABILITY", "smoke", "a format lead seen twice is recorded", minedNames.includes(".qqq8"), JSON.stringify(minedNames.filter((n) => n.startsWith(".qqq"))));
+    const minerRows = minedRows.filter((o) => (o.tags || []).includes("mined"));
+    check("PORTABILITY", "smoke", "a mined row carries its hit count as a field", minerRows.length >= 4 && minerRows.every((o) => typeof o.hits === "number" && o.hits >= 1), JSON.stringify(minerRows.map((o) => o.hits)));
+
+    // Pruning derived rows that no longer qualify goes through the lock, and deletes only with a confirmation.
+    await call("library_record", { type: "reference", name: ".pruneme", source: "session-mining", description: "below the threshold", summary: "seen 1 time(s) in the session history; mined for the prune test" });
+    await call("library_record", { type: "reference", name: ".keepme", source: "session-mining", description: "above the threshold", summary: "seen 3 time(s) in the session history; mined for the prune test" });
+    const pruneRefused = await call("library_index", { op: "prune", source: "session-mining", type: "reference" });
+    check("PORTABILITY", "smoke", "prune without confirm is refused", pruneRefused.ok === false && /confirm/.test(String(pruneRefused.note)), String(pruneRefused.note).slice(0, 80));
+    const stillThere = (await call("library_query", { query: ".pruneme" })).results.some((o) => o.name === ".pruneme");
+    check("PORTABILITY", "smoke", "a refused prune deletes nothing", stillThere === true, "the row is gone without a confirmation");
+    const pruned = await call("library_index", { op: "prune", source: "session-mining", type: "reference", keepHits: 2, confirm: true, reason: "selfcheck prune" });
+    const afterPrune = (await call("library_query", { query: ".pruneme" })).results.some((o) => o.name === ".pruneme");
+    const keptRow = (await call("library_query", { query: ".keepme" })).results.some((o) => o.name === ".keepme");
+    check("PORTABILITY", "smoke", "a confirmed prune drops the row below the threshold and keeps the one above", pruned.ok === true && pruned.dropped >= 1 && afterPrune === false && keptRow === true, JSON.stringify({ dropped: pruned.dropped, gone: !afterPrune, kept: keptRow }));
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
       ["library_encoding", {}],

@@ -22,7 +22,9 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
   `op=audit dir=<path>` reconciles a directory with the Library read-only, both directions - entries on
   disk with no record, and records whose path no longer exists (recorded is not the same as addressable);
   `op=index dir=<path> confirm=true` registers the missing entries, bounded by depth and an entry
-  ceiling, with the sensitive-content rule applied. A drive root is refused: an indexer that walks a whole
+  ceiling, with the sensitive-content rule applied.
+  `op=prune confirm=true` drops derived rows that no longer qualify - mined format leads seen fewer
+  than `keepHits` times - so a rule tightened later can be applied to what is already recorded. A drive root is refused: an indexer that walks a whole
   disk is the scan this Library exists to replace
 - `library_query` - search by keyword/type/tags, cursor pagination. A multi-word query is matched term by term and ranked by how many terms each object covers, so several words narrow results instead of requiring that exact phrase; a single word behaves as a plain substring search.
 - `library_detect` - scan and register this machine's tools/environments. The built-in seed is
@@ -58,7 +60,9 @@ tools that resolve on this machine, paths that exist, local endpoints, environme
 and file formats this library does not know yet. Everything else in a conversation is dropped: a
 246-session store (measured: 523 MB compressed, 1,509 MB decompressed, 1,478,647 records, read in 70.8 s)
 leaves verified facts rather than a transcript archive: measured here, 253 sessions and 1,484,547 records
-yielded 11,253 rows in about 49 minutes. Mined rows carry
+yielded 11,253 rows in about 49 minutes.
+A format lead has to be seen at least twice to be recorded at all: in 1.5 million records an extension
+mentioned once is usually a hash or a token, while a format that matters recurs. Mined rows carry
 `source: session-mining` with a name derived from the fact itself, so a later pass replaces them instead
 of piling up.
 

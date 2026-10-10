@@ -498,3 +498,27 @@ and that the state file carries the same - 171/171 checks, three axes 6/6, 135/1
 itself was wrong on its first run in a way worth keeping: a regular expression written through a shell
 heredoc had its `\d` escapes eaten and became the literal `/^[+-]dd:dd$/`, which only showed up because
 the message printed the value it rejected - the fix builds the expected string instead of matching it.
+
+## Round 13 - a lead has to be evidence (2026-10-10)
+
+The first full pass over the real history recorded 11,253 facts, of which 2,324 were format leads. That is
+the right shape - tools, paths, endpoints and variables are existence-checked against the machine, so they
+are facts - but a lead is a hint, and among 1.5 million records an extension mentioned exactly once is
+usually a hash, a token or a code member rather than a format. So a lead now has to be seen at least twice
+(`MINED_LEAD_MIN_HITS`), which is where the noise lived, while the existence-checked half is untouched.
+
+Tightening a rule only helps future passes, so the already-recorded leads needed a way out that is not
+"edit index.json by hand" - which this plugin explicitly tells people not to do. `library_index op=prune`
+removes derived rows that no longer qualify, scoped by `source`/`type`/`keepHits`, going through the same
+lock as every other write, refusing to run without `confirm: true`, and logging what it dropped. Mined
+rows also carry their hit count as a `hits` field now (with the older summary text as the fallback), so a
+future rule change does not have to read prose.
+
+Verified: self-check 173 -> 185 checks (three axes 6/6, 149/149, 30/30). The fixture session mentions one
+unknown extension once and another twice, and the checks assert that the once-mentioned lead is absent
+while the twice-mentioned one is present with a numeric hit count - the assertion that would have caught
+the noise in the first place. `op=prune` is tested for both halves of its contract: refused without
+`confirm` and deleting nothing when refused, then dropping the row below the threshold while keeping the
+one above. One of those checks failed first because it swept every row whose text mentions "mined" - 
+including two rows the test itself had written by hand - and now looks only at rows the miner wrote, which
+it identifies by the tag it sets.
