@@ -476,3 +476,25 @@ path is never recorded and that a second pass replaces rather than piles up. Two
 first for instructive reasons: `TEXT_EXTENSIONS` is an array, not a Set (the reader had assumed `.has`),
 and the extension fixture had to name the format the way a session really would, in backticks, because a
 bare `.ext` in prose is exactly what the tightened rule now refuses.
+
+## Round 12 - which clock a report is read on (2026-10-10)
+
+Every timestamp this plugin writes is UTC ISO-8601, and that is deliberate: the resume marker, the
+per-session progress lines, `createdAt` ordering and the supersede decision all compare on one ruler,
+which a local clock (with its offset changes) must not be allowed to disturb. What was wrong was only the
+reading side: progress was reported to a person as `12:59:55Z` on a machine whose clock is UTC+8, so the
+same moment was 20:59:55 locally, and the reader had to do the arithmetic.
+
+So storage stays UTC and the offset travels with it: `timezoneInfo()` (offset in minutes, the zone name
+from `Intl`, the `+08:00` form and the current local time as ISO-8601 with that offset) is now part of
+every `library_sessions` response - `status`, `list`, `read`, `tail`, `record`, `search`, `bootstrap` - and
+of the state file a poller reads, which means each progress line's meaning is unambiguous without a second
+source. The offset is cached once per process and read at the moment of the report, so a machine whose
+clock rules change mid-run still reports the offset in force.
+
+Verified: the self-check asserts the reported offset equals `-new Date().getTimezoneOffset()` and that the
+`+HH:MM` form matches it, on this host `{offsetMinutes: 480, name: "Asia/Shanghai", utcOffset: "+08:00"}`,
+and that the state file carries the same - 171/171 checks, three axes 6/6, 135/135, 30/30. The check
+itself was wrong on its first run in a way worth keeping: a regular expression written through a shell
+heredoc had its `\d` escapes eaten and became the literal `/^[+-]dd:dd$/`, which only showed up because
+the message printed the value it rejected - the fix builds the expected string instead of matching it.

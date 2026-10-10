@@ -47,6 +47,8 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
   writes a session into the Library as a `log`; `op=bootstrap` runs the first-run pass described below;
   `op=status` reports it. Sessions are stored as one zstd frame per record, so
   frames are located by the zstd magic and decoded one at a time - a torn tail is counted, never guessed.
+  Timestamps are UTC ISO-8601, and every response also carries `timezone` - the host's UTC offset,
+  its zone name and the current local time - so a report can be read on a local clock without guessing.
   Local reads only: nothing is uploaded, no file is modified
 
 ### First run: mine the history before claiming to be installed

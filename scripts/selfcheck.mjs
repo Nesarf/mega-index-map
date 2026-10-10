@@ -479,6 +479,11 @@ function smoke() {
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
     check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterRows.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
     const status = await call("library_sessions", { op: "status" });
+    const hostOffset = -new Date().getTimezoneOffset();
+    const expectedOffset = (hostOffset >= 0 ? "+" : "-") + String(Math.floor(Math.abs(hostOffset) / 60)).padStart(2, "0") + ":" + String(Math.abs(hostOffset) % 60).padStart(2, "0");
+    check("PORTABILITY", "smoke", "reports carry the host UTC offset beside the UTC timestamps", !!status.timezone && status.timezone.offsetMinutes === hostOffset && status.timezone.utcOffset === expectedOffset, JSON.stringify(status.timezone));
+    const stateHasTz = JSON.parse(fs.readFileSync(path.join(HOME, "library", "bootstrap-state.json"), "utf8")).timezone;
+    check("PORTABILITY", "smoke", "the state file a poller reads carries it too", !!stateHasTz && stateHasTz.offsetMinutes === hostOffset, JSON.stringify(stateHasTz));
     check("PORTABILITY", "smoke", "status reports the pass", status.ok === true && status.state && ["complete", "partial", "mining"].includes(status.state.phase), JSON.stringify(status.state && status.state.phase));
     const progressLines = fs.readFileSync(status.progress, "utf8").split(String.fromCharCode(10)).filter(Boolean).length;
     check("PORTABILITY", "smoke", "the pass is visible step by step, not only at the end", progressLines >= 3, `${progressLines} line(s)`);
