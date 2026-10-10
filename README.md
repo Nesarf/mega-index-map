@@ -57,7 +57,8 @@ On its first start the plugin reads every session it can find and mines what a L
 tools that resolve on this machine, paths that exist, local endpoints, environment variables that are set,
 and file formats this library does not know yet. Everything else in a conversation is dropped: a
 246-session store (measured: 523 MB compressed, 1,509 MB decompressed, 1,478,647 records, read in 70.8 s)
-leaves a few thousand verified facts rather than a transcript archive. Mined rows carry
+leaves verified facts rather than a transcript archive: measured here, 253 sessions and 1,484,547 records
+yielded 11,253 rows in about 49 minutes. Mined rows carry
 `source: session-mining` with a name derived from the fact itself, so a later pass replaces them instead
 of piling up.
 
@@ -84,8 +85,10 @@ dsh plugin --profile web update mega-index-map
 - The library lives at `$DSH_HOME/library` (default `~/.dsh/library`). Additions learned on this
   machine live beside it and never override the built-in tables.
 - Work stays local: the plugin performs no network I/O and transmits nothing on its own.
-- Measured cost is linear and small: at 5,000 objects a query takes about 13 ms, a record 19 ms, a
-  rebuild 26 ms (index file around 2.3 MB). Back up or migrate with `library_export`.
+- Measured cost at this machine's current scale - 11,649 objects, 6.0 MB index: a query takes about
+  51 ms, recording one object 156 ms (it rewrites the index), a rebuild 124 ms (0 conflicts, 0 duplicates),
+  and a status read 10 ms. At 5,000 objects the same three were 13 / 19 / 26 ms with a 2.3 MB index.
+  Back up or migrate with `library_export`.
 - Concurrent writers are serialised through a lock file: a lock whose owner died is taken over, and
   a busy one is waited for for up to two seconds before the write proceeds and says so in the log.
 - This package and the sibling cross-harness build are read-only with respect to each other; nothing
