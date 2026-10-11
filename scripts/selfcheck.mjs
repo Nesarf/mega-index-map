@@ -496,6 +496,23 @@ function smoke() {
     const logText = fs.readFileSync(path.join(HOME, "library", "log.jsonl"), "utf8");
     check("PORTABILITY", "smoke", "an explicit decrypt returns the body and records why it was read", decCall.ok === true && !!decCall.object && decCall.object.path === triggerFile && /manual decrypt/.test(logText) && /reason: selfcheck read/.test(logText), JSON.stringify({ ok: decCall.ok, rowId: encRow.id, gotLen: decCall.object && decCall.object.path ? decCall.object.path.length : null, expLen: triggerFile.length, firstDiff: decCall.object && decCall.object.path && decCall.object.path !== triggerFile ? [...triggerFile].findIndex((ch, i) => ch !== decCall.object.path[i]) : null, loggedReason: /reason: selfcheck read/.test(logText) }));
 
+
+    // ---- op=review: a person decides, per object, that this body is not the protected material ----
+    const revNoReason = await call("library_index", { op: "review", id: encRow.id, decision: "clear" });
+    check("PORTABILITY", "smoke", "review refuses a decision without a reason", revNoReason.ok === false && /reason/.test(String(revNoReason.note)), String(revNoReason.note).slice(0, 70));
+    const revList0 = await call("library_index", { op: "review" });
+    check("PORTABILITY", "smoke", "review lists the objects that carry a review (none yet)", revList0.ok === true && revList0.reviewed === 0, JSON.stringify({ reviewed: revList0.reviewed }));
+    const cleared = await call("library_index", { op: "review", id: encRow.id, decision: "clear", reason: "selfcheck: a record about a tool, not about the material" });
+    const idxAfter = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const objAfter = idxAfter.objects.find((o) => o.id === encRow.id);
+    check("PORTABILITY", "smoke", "clearing one object makes its body readable, marked with the review that let it through", cleared.ok === true && !!objAfter && objAfter.path === triggerFile && !!objAfter.sensitivityReview && objAfter.sensitivityReview.decision === "cleared" && !objAfter.__content, JSON.stringify({ ok: cleared.ok, pathVisible: !!(objAfter && objAfter.path === triggerFile), marked: !!(objAfter && objAfter.sensitivityReview), blobGone: !(objAfter && objAfter.__content) }));
+    const revList1 = await call("library_index", { op: "review" });
+    check("PORTABILITY", "smoke", "a cleared object is listed as reviewed", revList1.ok === true && revList1.reviewed === 1, JSON.stringify({ reviewed: revList1.reviewed }));
+    const revoked = await call("library_index", { op: "review", id: encRow.id, decision: "revoke", reason: "selfcheck: put the rule back" });
+    const idxRevoked = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const objRev = idxRevoked.objects.find((o) => o.id === encRow.id);
+    check("PORTABILITY", "smoke", "revoking puts the rule back: encrypted again, marker gone", revoked.ok === true && !!objRev && objRev.sensitive === true && !!objRev.__content && !objRev.sensitivityReview, JSON.stringify({ ok: revoked.ok, sensitive: !!(objRev && objRev.sensitive), blob: !!(objRev && objRev.__content), marker: !!(objRev && objRev.sensitivityReview) }));
+
     const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
     check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterRows.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
@@ -580,6 +597,14 @@ function smoke() {
     const endpointAlive = (await call("library_query", { query: "verify-endpoint-fixture", limit: 20 })).results.some((o) => o.name === "verify-endpoint-fixture");
     check("PORTABILITY", "smoke", "a confirmed dead-prune drops the record whose file is gone", deadRun.ok === true && deadRun.dropped >= 1 && nowGone === false, JSON.stringify({ dropped: deadRun.dropped, goneAfterwards: !nowGone }));
     check("PORTABILITY", "smoke", "an endpoint is not a dead path and survives the prune", endpointAlive === true, JSON.stringify({ endpointAlive, dead: deadRun.dead }));
+    // ---- op=status: the whole library in one read, with disk-side findings quoted from the log ----
+    const st = await call("library_index", { op: "status" });
+    const idxFile = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const sensCount = idxFile.objects.filter((o) => o.sensitive).length;
+    const fpCount = idxFile.objects.filter((o) => typeof o.sha256 === "string" && o.sha256).length;
+    check("PORTABILITY", "smoke", "status reports the whole library consistently", st.ok === true && st.objects.total === idxFile.objects.length && st.sensitive.encrypted === sensCount && st.fingerprints.fingerprinted === fpCount && st.integrity.sensitiveWithoutBlob === 0, JSON.stringify({ total: st.objects.total, expected: idxFile.objects.length, encrypted: st.sensitive.encrypted, sensCount, fingerprinted: st.fingerprints.fingerprinted, fpCount, withoutBlob: st.integrity.sensitiveWithoutBlob }));
+    check("PORTABILITY", "smoke", "status quotes the last disk-side findings from the log instead of walking the disk", st.log.entries > 0 && !!st.lastReported.verify && !!st.lastReported.review, JSON.stringify({ entries: st.log.entries, verify: !!(st.lastReported && st.lastReported.verify), review: !!(st.lastReported && st.lastReported.review) }));
+
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
       ["library_encoding", {}],

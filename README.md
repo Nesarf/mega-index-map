@@ -103,9 +103,13 @@ consequences follow, and none of them is a fault:
   encrypted on the way out, and every manual decrypt is written to the append-only log.
 
 Rewording a description to slip past the patterns is not a workaround this plugin offers: it would evade a
-deliberate boundary to gain readability and leave the record vaguer than it started. If a class of records
-genuinely needs to be readable in the index, the honest route is an explicit, per-object, logged review -
-never a pattern change and never a name-based exemption.
+deliberate boundary to gain readability and leave the record vaguer than it started. The honest route is
+`library_index op=review`: with an id, a decision (`clear` or `revoke`) and a reason it either makes one
+encrypted body readable or puts the rule back - per object, never by name or pattern, always written to the
+append-only log, and a cleared object carries the review that let it through. `op=review` with no id lists
+every object that carries one. Use it for records **about software** (a scanner, a rule set, a password
+vault: the words that describe the domain are the words the patterns look for), never for the material
+itself - a sample, a key or a credential path stays encrypted.
 
 ## Install
 
@@ -122,6 +126,11 @@ dsh plugin --profile web update mega-index-map
 - The library lives at `$DSH_HOME/library` (default `~/.dsh/library`). Additions learned on this
   machine live beside it and never override the built-in tables.
 - Work stays local: the plugin performs no network I/O and transmits nothing on its own.
+- `library_index op=status` is the whole-library view in one read: object counts by type and source, how
+  many records are encrypted and how many were cleared by a review, fingerprint coverage over the paths
+  that can be fingerprinted, addresses versus paths, internal consistency (duplicate keys, missing fields,
+  a sensitive flag without a blob), and the last disk-side findings quoted from the append-only log with
+  their timestamps - so seeing the whole library never means walking the disk again.
 - Measured cost at this machine's current scale - 11,649 objects, 6.0 MB index: a query takes about
   51 ms, recording one object 156 ms (it rewrites the index), a rebuild 124 ms (0 conflicts, 0 duplicates),
   and a status read 10 ms. At 5,000 objects the same three were 13 / 19 / 26 ms with a 2.3 MB index.

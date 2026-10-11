@@ -698,3 +698,48 @@ knowledge 1; by origin: session-mining 82, detect 13, adb 5. The dry run's numbe
 confirmed run drops the record whose file was removed, and an endpoint sharing the same source survives.
 Fault-injected against a copy with the address exclusion removed - the endpoint is deleted and the check
 fails with `endpointAlive: false`.
+
+## Round 19 - a review instead of a rephrasing, and one view of the whole
+
+Two things came out of the security-tooling session's report. The first was a proposal that was right in
+substance: keep the encrypted body and add a second, readable *path pointer* record per tool, so the index
+can still answer "where is clamscan.exe" without decrypting anything. It works, it bypasses nothing, and
+the pointer is an ordinary record - which is how it inherits fingerprinting from op=verify without anyone
+arranging it. The second was the part worth fixing: to make those pointers readable, the tags had to be
+reworded, because the match surface includes tags and `antivirus` contains `virus`. That is a person
+choosing words against a matcher, and while this session chose carefully, it is not a habit to build into
+an agent's repertoire - the next tool, or the next agent, will not necessarily be so careful.
+
+So `library_index op=review` is that honest route, made first-class: with an `id`, a `decision`
+(`clear` / `revoke`) and a `reason` it either makes one encrypted body readable or puts the rule back.
+Per object, never by name and never a pattern change; the reason is required because a decision without one
+is not auditable; the decision goes to the append-only log; and a cleared object carries the review that
+let it through, so a later reader sees a decision rather than a record that mysteriously stopped being
+sensitive. `op=review` with no id lists every object that carries one, so exemptions stay visible, and
+`revoke` re-applies the patterns - if they no longer match, only the marker is removed and the answer says
+so. The op's own text draws the boundary it must never cross: it is for records **about software** that
+describes a domain, never for the material itself - a sample, a key or a credential path stays encrypted.
+The five tool bodies in question are records about software; the other five encrypted records on this
+machine are key paths, signing artifacts and a schema map, and they stay encrypted.
+
+The session's report also named a gap on this side: every whole-library number quoted today - object
+counts, fingerprint coverage, how many paths are dead - came from scripts I wrote by hand, not from the
+plugin. So `library_index op=status` now answers "what does this Library hold right now" in one read:
+counts by type and source, how many records are encrypted and how many were cleared by a review,
+fingerprint coverage over the paths that can be fingerprinted, recorded paths versus addresses, internal
+consistency (duplicate keys, missing fields, a sensitive flag with no blob, a hash with no size), and the
+last disk-side findings - verify, dead-prune, audit, review - quoted from the append-only log with their
+timestamps. It deliberately does not walk the disk: that is what op=audit, op=verify and op=prune are for,
+and a status call that stat'ed eight thousand files would be the wrong kind of observability.
+
+**Self-check: 211 -> 225 checks** (three axes 6/6, 189/189, 30/30). The review checks assert the refusal
+without a reason, the listing before and after, and - reading the index file directly rather than trusting
+a query projection - that a cleared object has its path back, carries the review marker and no longer has a
+blob, and that revoking encrypts it again and drops the marker. The status checks assert that its counts
+equal the file's own contents and that the disk-side findings are quoted from the log. Both were
+fault-injected: a copy where `clear` silently keeps the blob fails with `blobGone: false`, and a copy that
+stops counting encrypted objects fails with `encrypted: 0` against a real count of 2.
+
+One ordering lesson, again from the fixture rather than the code: the status assertions were first placed
+before the verify fixtures ran, so there was no verify entry in the log yet and the check failed for the
+right reason. A check that reads what earlier checks produced has to be placed after them.
