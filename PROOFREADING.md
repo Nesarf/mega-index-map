@@ -848,3 +848,37 @@ opened. Cleared and protected are opposite decisions and adding them together pr
 on - the same class of mistake as the fingerprint denominator in round 20, in a smaller place. They are now
 counted separately, with a check that reads the file's own markers and requires the two counts to match, and a
 fault injection that puts them back together (one failure, as it should).
+
+## Round 23 - the pass that undid a person's decision
+
+A restart, and one boot pass later, the Library looked wrong in a way that pointed at the mining writer: 34
+records encrypted where 9 had been, fingerprint coverage down from 97.5% to 58.9%, and the four reviews that
+had sealed things no longer carrying their markers. The numbers were the symptom; `upsertMined` was the
+cause, in two lines of behaviour that nobody had written deliberately.
+
+**It never looked at the row it was replacing.** The pass built a fresh object for each fact and stored it
+over the old one, so:
+
+- A record a person had **cleared** was re-encrypted by the next pass, and its review marker with it. That is
+  the direction that shows up as noise: the toolchain records this machine's rule over-matches (Windows
+  components named Credential*, the @aws-sdk credential-provider packages, a Sogou login icon) came back
+  encrypted and unreadable.
+- A record a person had **protected** stayed encrypted, which looks harmless until you notice the marker is
+  gone with it - and then the dangerous direction: if a later pass stops matching that text (the path no
+  longer appears in any session), the row is written back **in the clear**. An automatic pass could open
+  something a person had sealed.
+
+**It threw the fingerprint away.** The fresh object carried no `sha256`, so replacing a fingerprinted row
+dropped its digest - and every boot re-mines whatever changed, so coverage was going to fall a little further
+on every restart, and read as an archive that had gone unverified.
+
+Both are fixed in the writer: a review marker is carried forward **and honoured** (cleared stays readable,
+protected stays sealed, and the marker stays visible in both cases), and a fingerprint is carried forward
+when the path is unchanged - the pass re-learns a fact, it does not re-read the file. Two checks now hold
+this in place, using the fixture's own second pass: fingerprint one mined row and clear another before it,
+then require the review and the digest to have survived it. Both were fault-injected (the pass stops
+respecting a review; the pass stops carrying the fingerprint), each producing exactly one failure.
+
+One fixture lesson again: the check that counts mined rows to prove a second pass does not pile up was
+counting them through a keyword query, and clearing a record makes its summary searchable again - so the
+number grew by one for a reason that had nothing to do with piling up. It reads the index file now.

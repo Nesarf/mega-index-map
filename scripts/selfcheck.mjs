@@ -486,7 +486,7 @@ function smoke() {
     const mined = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     check("PORTABILITY", "smoke", "the first-run pass reads the history and reports what it found", mined.ok === true && mined.phase === "complete" && mined.sessionsTotal >= 2 && mined.found >= 4, JSON.stringify({ phase: mined.phase, total: mined.sessionsTotal, found: mined.found, added: mined.added }));
     const minedQuery = await call("library_query", { query: "mined", limit: 100 });
-    const minedRows = (minedQuery.results || []).filter((o) => o.source === "session-mining");
+    const minedRows = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.filter((o) => o.source === "session-mining");
     // The mined sensitive row must be encrypted: metadata visible, body not.
     // Query by the row own name: a sensitive object exposes only metadata, so the words that live in its
     // summary and tags are not what it can be found by.
@@ -556,9 +556,27 @@ function smoke() {
     const objRev = idxRevoked.objects.find((o) => o.id === encRow.id);
     check("PORTABILITY", "smoke", "revoking puts the rule back: encrypted again, marker gone", revoked.ok === true && !!objRev && objRev.sensitive === true && !!objRev.__content && !objRev.sensitivityReview, JSON.stringify({ ok: revoked.ok, sensitive: !!(objRev && objRev.sensitive), blob: !!(objRev && objRev.__content), marker: !!(objRev && objRev.sensitivityReview) }));
 
+
+    // Before the second pass: fingerprint one mined row and clear another, so the pass has something to
+    // damage. Both were real regression sources (coverage fell on every boot; a cleared row came back
+    // encrypted with its marker gone, and the dangerous direction would have been a sealed row written back
+    // in the clear).
+    const nodeRow = (await call("library_query", { query: "node", limit: 30 })).results.find((o) => o.type === "tool" && o.source === "session-mining" && o.path);
+    const beforeFp = await call("library_index", { op: "verify", type: "tool", maxFiles: 500, confirm: true, reason: "selfcheck: fingerprint before the second pass" });
+    const clearMined = await call("library_index", { op: "review", id: encRow.id, decision: "clear", reason: "selfcheck: this record is fine to read" });
+
     const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
+    // After the second pass: the review decision and the fingerprint must both have survived.
+    const idxAgain = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const encAgain = idxAgain.objects.find((o) => o.id === encRow.id);
+    check("PORTABILITY", "smoke", "a second pass does not undo a review: the cleared record stays readable and keeps its marker", !!encAgain && encAgain.sensitive !== true && !encAgain.__content && !!encAgain.sensitivityReview && encAgain.sensitivityReview.decision === "cleared", JSON.stringify({ sensitive: !!(encAgain && encAgain.sensitive), blob: !!(encAgain && encAgain.__content), marker: encAgain && encAgain.sensitivityReview ? encAgain.sensitivityReview.decision : null }));
+    const nodeAgain = nodeRow ? idxAgain.objects.find((o) => o.id === nodeRow.id) : null;
+    check("PORTABILITY", "smoke", "a second pass keeps a fingerprint it did not take", !nodeRow || !!(nodeAgain && typeof nodeAgain.sha256 === "string"), JSON.stringify({ row: !!nodeRow, sha256: !!(nodeAgain && nodeAgain.sha256) }));
+
+
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");
-    check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterRows.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
+    const afterMined = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.filter((o) => o.source === "session-mining");
+    check("PORTABILITY", "smoke", "a second pass replaces instead of piling up", again.ok === true && afterMined.length === minedRows.length && again.added === 0, JSON.stringify({ before: minedRows.length, after: afterRows.length, added: again.added, updated: again.updated }));
     // And it must find nothing to read at all: the resume marker has to survive the pass that wrote it,
     // otherwise every run silently re-reads the whole history (that regression existed once).
     check("PORTABILITY", "smoke", "the marker survives, so a second pass has nothing pending", again.sessionsTotal === 0 && again.records === 0, JSON.stringify({ pending: again.sessionsTotal, records: again.records }));
