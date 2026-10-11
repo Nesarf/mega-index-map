@@ -548,6 +548,18 @@ function smoke() {
     check("PORTABILITY", "smoke", "what=candidates lists readable records the patterns would seal, and names the pattern", cand.ok === true && candIds.includes(encRow.id) && !!candByName && Array.isArray(candByName.patterns) && candByName.patterns.length >= 1, JSON.stringify({ candidates: cand.candidates, oursFound: candIds.includes(encRow.id), patterns: candByName ? candByName.patterns : null }));
     check("PORTABILITY", "smoke", "what=candidates leaves ordinary records alone", !candIds.includes(plainRec.id), JSON.stringify({ plainListed: candIds.includes(plainRec.id) }));
 
+    // The other half of the retrospective view: encrypted records nobody has judged. Two cases in the
+    // fixture - the mined fact the patterns sealed by themselves (must be listed) and a record protected by
+    // a review (must not).
+    const protectAgain = await call("library_index", { op: "review", id: plainId, decision: "protect", reason: "selfcheck: a reviewed seal for the sealed-view check" });
+    const sealedView = await call("library_index", { op: "review", what: "sealed" });
+    const sealedIds = ((sealedView.samples && sealedView.samples.sealed) || []).map((s) => s.id);
+    // The positive case has to be a row that is sealed by the patterns with no review at THIS point in the
+    // flow: the mined trigger row is still cleared here (its revoke comes later), while the quarantine-path
+    // fixture was sealed by the pattern the moment it was written and no review has touched it.
+    const sealedByPattern = ((sealedView.samples && sealedView.samples.sealed) || []).find((s) => s.name === "sample-fixture.zip");
+    check("PORTABILITY", "smoke", "what=sealed lists encrypted records that carry no review", sealedView.ok === true && sealedView.sealed >= 1 && !!sealedByPattern, JSON.stringify({ sealed: sealedView.sealed, ours: !!sealedByPattern }));
+    check("PORTABILITY", "smoke", "what=sealed leaves a reviewed seal out", protectAgain.ok === true && !sealedIds.includes(plainId), JSON.stringify({ protectedListed: sealedIds.includes(plainId) }));
     const revList1 = await call("library_index", { op: "review" });
     const listedIds = ((revList1.samples && revList1.samples.reviewed) || []).map((r) => r.id);
     check("PORTABILITY", "smoke", "the object we cleared is listed as reviewed", revList1.ok === true && listedIds.includes(encRow.id), JSON.stringify({ reviewed: revList1.reviewed, ours: listedIds.includes(encRow.id) }));

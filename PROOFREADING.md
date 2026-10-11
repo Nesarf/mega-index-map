@@ -882,3 +882,31 @@ respecting a review; the pass stops carrying the fingerprint), each producing ex
 One fixture lesson again: the check that counts mined rows to prove a second pass does not pile up was
 counting them through a keyword query, and clearing a record makes its summary searchable again - so the
 number grew by one for a reason that had nothing to do with piling up. It reads the index file now.
+
+## Round 24 - the other half of the retrospective view
+
+Clearing the toolchain noise took a one-off script with a hardcoded list of names - which is a sign the
+Library was missing a view rather than that the work was unusual. `what=candidates` already answered "which
+readable records would the current patterns seal"; nothing answered the converse: **which encrypted records
+nobody has judged**. Those are the rows the patterns sealed on their own, and they are exactly where the
+noise lives (a Windows component called CredentialEnrollmentManager, an npm package called
+credential-provider-env, a Sogou login icon). They are also where a record that *is* material should be
+confirmed rather than assumed - so the list serves both directions, and it is what turns the hardcoded
+whitelist into a report.
+
+`op=review what=sealed` is read-only: it lists encrypted records without a review marker, with samples, and
+counts them next to the reviewed ones. On the real library it reports 10 against 11 encrypted - the one with
+a marker being the quarantined sample that was protected deliberately - which is the cross-check that the
+manual classification from the previous round and the plugin's own view agree.
+
+**Self-check: 245 -> 249 checks** (three axes 6/6, 213/213, 30/30). Two checks: a record the patterns sealed
+on their own is listed, and a record whose sealing went through a review is not. Both fault-injected - once
+by making the view ignore review markers (a reviewed seal appears when it should not), once by making it
+return nothing.
+
+Two fixture lessons again, both about where a check sits rather than what it asserts. The positive case was
+first the mined trigger row, which at that point in the flow is *cleared* (its revoke comes later), so the
+check was asking a row that was readable to appear in a list of encrypted ones; the quarantine-path fixture
+is sealed the moment it is written and serves as the positive case instead. And the lookup was by name, where
+an encrypted row exposes no path and its name is the miner's notion of the file rather than the file's - by
+id is the only reliable way to ask.

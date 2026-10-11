@@ -129,6 +129,15 @@ each one. Run it after touching the patterns. It is how a rule meant to catch qu
 never to match anything, and how the records that predate the rule seeing a path were found - forty of them,
 of which three were credential stores and thirty-seven were a toolchain that merely mentions credentials.
 
+The list has two halves, and both are read-only. `op=review what=candidates` answers what the current
+patterns would seal among the records that are readable right now; `op=review what=sealed` answers the
+converse - which encrypted records carry no review marker, meaning a pattern sealed them and nobody has
+judged them. The second list is where the noise hides (a Windows component, an npm package that merely
+mentions credentials, a login icon), and it is equally where a record that really *is* material should be
+confirmed rather than assumed. Clearing a record takes it off that list and onto the review record; leaving
+it alone is also a decision, and the list is what makes the difference visible.
+
+
 
 
 ## Install
