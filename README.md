@@ -81,6 +81,32 @@ stopped. Every step is appended to `$DSH_HOME/library/bootstrap-progress.jsonl` 
 `bootstrap-state.json` - one line per session, naming the file being read - so progress is visible while
 it happens rather than only at the end.
 
+### What a sensitive record can and cannot do
+
+The sensitive-content rule is deliberate, and it is worth knowing exactly what it buys, because a record
+about a *security tool* (a virus scanner, a signature rule set, a password vault, an encrypted-volume tool)
+trips it for the plainest of reasons: the words that describe the domain are the words the patterns look
+for. Such an object is stored encrypt-isolated, and it exposes only
+
+```text
+{ id, type, name, source, sensitive: true, createdAt, __content }
+```
+
+Everything else - `path`, `description`, `summary`, `tags` - is inside the encrypted blob. Three
+consequences follow, and none of them is a fault:
+
+- **It is findable by what it is called, not by what it says.** `library_query` can match the name and the
+  source; a keyword that only appeared in its summary or tags will not find it.
+- **`op=verify` skips it**, because its `path` lives in the blob and there is nothing to fingerprint. A
+  report of `unchanged: 0` therefore does not cover sensitive records.
+- **The body is one explicit step away**: `library_decrypt id=<id>` returns it, `library_export` keeps it
+  encrypted on the way out, and every manual decrypt is written to the append-only log.
+
+Rewording a description to slip past the patterns is not a workaround this plugin offers: it would evade a
+deliberate boundary to gain readability and leave the record vaguer than it started. If a class of records
+genuinely needs to be readable in the index, the honest route is an explicit, per-object, logged review -
+never a pattern change and never a name-based exemption.
+
 ## Install
 
 ```powershell

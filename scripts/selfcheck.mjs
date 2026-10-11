@@ -477,7 +477,9 @@ function smoke() {
     // Query by the row own name: a sensitive object exposes only metadata, so the words that live in its
     // summary and tags are not what it can be found by.
     const encQuery = await call("library_query", { query: "trojan-sample", limit: 10 });
-    const encRow = (encQuery.results || []).find((o) => o.sensitive === true);
+    // Scoped to this stage fixture: the smoke stage runs twice with different RUN suffixes and the
+    // library keeps both, so "the first sensitive row" can belong to the previous stage.
+    const encRow = (encQuery.results || []).find((o) => o.sensitive === true && o.name === path.basename(triggerFile));
     check("PORTABILITY", "smoke", "a mined fact whose text trips the sensitive patterns is encrypted, not stored in the clear", mined.encrypted >= 1 && !!encRow && !encRow.path && !encRow.summary, JSON.stringify({ encrypted: mined.encrypted, row: encRow ? { name: encRow.name, sensitive: encRow.sensitive, leakedPath: !!encRow.path } : null }));
 
     const minedNames = minedRows.map((o) => o.name);
@@ -487,6 +489,12 @@ function smoke() {
     check("PORTABILITY", "smoke", "a local endpoint is recorded without probing it", minedNames.includes("localhost:8123"), JSON.stringify(minedNames).slice(0, 140));
     check("PORTABILITY", "smoke", "a variable that is set is mined, and one that is not is left out", minedNames.includes("%DSH_HOME%") && !minedNames.some((n) => n.includes("SELFCHECK_UNSET")), JSON.stringify(minedNames.filter((x) => x.startsWith("%"))));
     check("PORTABILITY", "smoke", "an unknown format is recorded as a lead, not as a known format", minedRows.some((o) => o.type === "reference" && o.name === ".qqq8"), JSON.stringify(minedRows.filter((o) => o.type === "reference").map((o) => o.name)));
+
+    // The reading path is explicit and recorded: one call with a reason returns the body, and the reason
+    // lands in the append-only log so a read is as traceable as a write.
+    const decCall = await call("library_decrypt", { id: encRow.id, reason: "selfcheck read" });
+    const logText = fs.readFileSync(path.join(HOME, "library", "log.jsonl"), "utf8");
+    check("PORTABILITY", "smoke", "an explicit decrypt returns the body and records why it was read", decCall.ok === true && !!decCall.object && decCall.object.path === triggerFile && /manual decrypt/.test(logText) && /reason: selfcheck read/.test(logText), JSON.stringify({ ok: decCall.ok, rowId: encRow.id, gotLen: decCall.object && decCall.object.path ? decCall.object.path.length : null, expLen: triggerFile.length, firstDiff: decCall.object && decCall.object.path && decCall.object.path !== triggerFile ? [...triggerFile].findIndex((ch, i) => ch !== decCall.object.path[i]) : null, loggedReason: /reason: selfcheck read/.test(logText) }));
 
     const again = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     const afterRows = (await call("library_query", { query: "mined", limit: 100 })).results.filter((o) => o.source === "session-mining");

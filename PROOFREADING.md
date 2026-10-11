@@ -627,3 +627,40 @@ cosmetic.
 **Self-check: 199 -> 201 checks** (three axes 6/6, 165/165, 30/30). The fixture records an endpoint and
 asserts it comes back as an address with `missing: 0` - and the assertion was fault-injected against a copy
 with the classification removed, where it fails with `{"addressOnly":0,"missing":1}`.
+
+## Round 17 - how the five encrypted records should be handled (and what was actually missing)
+
+A report arrived from the session working on this machine's security tooling: five records - ClamAV, YARA,
+YARA-X, KeePassXC, VeraCrypt - came back `sensitive: true`, so only their metadata was readable. That
+session's handling was right and was left alone. It did not rename "virus database" to "signature
+database" to slip past the patterns, and it did not decrypt anything on its own. Rewording to evade a
+deliberate control is the one option that must stay off the table: it buys readability by making the
+record vaguer and by teaching whoever reads it later that the patterns are a wording problem.
+
+What the episode did expose was a **documentation** gap on this side, plus one missing piece of audit.
+`SENSITIVE_PATTERNS` is deliberate, and a record about a virus scanner trips it for the plainest reason -
+the words that describe the domain are the words the patterns look for. But the README never said what a
+sensitive record can and cannot do, so the behaviour arrived as a surprise with an implementation quote
+attached. Both READMEs now carry a section stating exactly what such an object exposes
+(`id/type/name/source/sensitive/createdAt/__content`, everything else inside the blob) and the three
+consequences that follow: it is findable by what it is called rather than by what it says; `op=verify`
+skips it (its `path` is in the blob), so `unchanged: 0` does not cover sensitive records; and the body is
+one explicit step away through `library_decrypt`, with `library_export` keeping it encrypted on the way
+out.
+
+The audit piece: decrypts were already logged ("manual decrypt id=...") but the log never said **why** a
+body was read, which is half of what makes a read auditable. `library_decrypt` now takes an optional
+`reason`, capped and written into the same append-only log, and its description warns that the reason is
+stored in the clear so nothing secret belongs in it. Reads are now as traceable as writes.
+
+**Self-check: 201 -> 203 checks** (three axes 6/6, 167/167, 30/30). The new assertion walks the whole
+reading path on a real sensitive row produced by the mining fixture: find it by name, decrypt it with a
+reason, assert the body comes back and that the reason reached the log. That also closed a coverage gap -
+the decrypt path had no test at all before this round. Fault-injected against a copy that logs the decrypt
+without the reason, where the check fails with `loggedReason: false`.
+
+One more fixture lesson, the same shape as the round-11 one but on the query side: the smoke stage runs
+twice with different `RUN` suffixes and the library keeps both stages' rows, so "the first sensitive row"
+belonged to the previous stage and the check compared it against this stage's path. Scoping the lookup by
+the fixture's own basename fixed it - a fixture has to be identified per run not only when it is created,
+but also when it is looked up.
