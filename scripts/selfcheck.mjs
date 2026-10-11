@@ -551,6 +551,12 @@ function smoke() {
     const goneSample = (vGone.samples && vGone.samples.missing ? vGone.samples.missing : []).find((s) => s.path === vFile);
     check("PORTABILITY", "smoke", "verify reports a removed file as gone", vGone.missing >= 1 && !!goneSample, JSON.stringify({ missing: vGone.missing }));
 
+    // An address is not a path: a recorded endpoint must never be reported as a deleted file.
+    await call("library_record", { type: "reference", name: "verify-endpoint-fixture", source: vDir, path: "http://127.0.0.1:65000/ping", description: "endpoint fixture" });
+    const vAddr = await call("library_index", { op: "verify", type: "reference", maxFiles: 500 });
+    const addrSample = (vAddr.samples && vAddr.samples.addressOnly ? vAddr.samples.addressOnly : []).find((s) => s.path === "http://127.0.0.1:65000/ping");
+    check("PORTABILITY", "smoke", "a recorded endpoint is reported as an address, not as a missing file", vAddr.addressOnly >= 1 && !!addrSample && vAddr.missing === 0, JSON.stringify({ addressOnly: vAddr.addressOnly, missing: vAddr.missing, sample: !!addrSample }));
+
     const vSlice = await call("library_index", { op: "verify", type: "file", maxFiles: 1 });
     check("PORTABILITY", "smoke", "verify bounds its work and hands back a cursor", vSlice.checked <= 1 && (vSlice.remaining === 0 || typeof vSlice.nextAfter === "string"), JSON.stringify({ checked: vSlice.checked, remaining: vSlice.remaining, nextAfter: vSlice.nextAfter ? "yes" : null }));
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.

@@ -601,3 +601,29 @@ of health.
 whose name carries an ASCII trigger word, and the check asserts the mined row comes back encrypted with no
 plaintext path or summary. Fault-injected against a copy of the writer that pushes straight into the index
 - the old behaviour - where the check fails with `encrypted: 0`.
+
+## Round 16 - an address is not a path
+
+The first real fingerprint baseline (round 14's op=verify, run over the whole library: 7,032 files checked,
+6,522 fingerprints recorded, 458 s) produced a number that was wrong in an instructive way. It reported
+**506 records whose file is gone** - and one of the samples was `http://127.0.0.1:8100`. The Library keeps
+service endpoints in the same `path` field on purpose (that is how "this machine exposes an embedding API
+on 8100" is recorded at all), and `stat()` cannot reach an address, so every endpoint was being counted as
+a deletion. Measured: **402 of the 506 were addresses**, which means the honest answer was 104 genuinely
+missing files, not 506 - an error of 5x, in the direction that sends someone hunting for a deletion that
+never happened.
+
+So `op=verify` now classifies a scheme-shaped `path` as `addressOnly` **before** it tries to hash it: there
+is nothing at an address to fingerprint, and the report says so instead of inventing a finding. The
+counter and its samples are part of the result, and the note names them.
+
+Worth noting what the same run got right, because it is the round-14 decision paying off: four records came
+back `unreadable` rather than missing - `C:\pagefile.sys` (EINVAL), `NTUSER.DAT`, `WebCacheV01.dat` and
+`C:\Windows\System32\config\SAM` (EBUSY, held open by the OS). Under the first version's single catch, all
+four would have been filed as `gone`, and a user acting on that report would have been deleting records for
+the SAM hive and the user registry on the strength of it. Splitting "gone" from "unreadable" was not
+cosmetic.
+
+**Self-check: 199 -> 201 checks** (three axes 6/6, 165/165, 30/30). The fixture records an endpoint and
+asserts it comes back as an address with `missing: 0` - and the assertion was fault-injected against a copy
+with the classification removed, where it fails with `{"addressOnly":0,"missing":1}`.
