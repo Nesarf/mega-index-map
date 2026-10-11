@@ -563,3 +563,41 @@ lifecycle: record a file, verify read-only (writes nothing), verify with `confir
 broken copies - one where the comparison is defeated (the changed-detection check fails), one where
 `confirm` never writes back (the recording check fails with `written: 0`) - so they detect these
 regressions rather than passing by coincidence.
+
+## Round 15 - the writer that skipped the sensitive check
+
+A report arrived from the session working on this machine's security tooling: five records (ClamAV, YARA,
+YARA-X, KeePassXC, VeraCrypt) came back `sensitive: true`, so `library_query` showed only id/type/name/
+source while the body sat encrypted. Nothing was wrong with them - the words that trip the patterns
+(virus, malware, credential, password) are exactly what a virus scanner, a signature rule set, a password
+vault and an encrypted-volume tool are about - and that session's handling was right: it did not rename
+"virus database" to "signature database" to slip past the check, because evading a deliberate boundary to
+gain readability is a worse trade than the friction it removes.
+
+The audit that followed found something on this side of the fence. `isSensitive()` is called from
+`storeObject()` - the single door every record goes through - and from the bulk `op=index` path. The mining
+writer, `upsertMined()`, called neither: it built its object and pushed it straight into the index. So the
+two writers disagreed about the same string, and a session that mentioned `E:\samples\trojan-thing.bin`
+would have had that path indexed in the clear, while the same path recorded by hand would have been
+encrypted. Measured on the real library before touching anything: **0 of 10,647 mined rows** had a trigger
+word in any visible field, so the gap was latent rather than exploited - and latent gaps in a security
+control are exactly the kind that get found by an incident rather than by a test.
+
+**The fix** routes mined objects through `storeObject()` too, counts how many were encrypted, and reports
+that count as `encrypted` in the bootstrap result (schema declared). Mining encrypts rather than skipping,
+which is deliberately *not* what `op=index` does: the bulk path skips sensitive entries so that one
+recursive registration cannot flood the library with encrypted records, and that reasoning does not apply
+to facts that arrive one at a time from a conversation - dropping one would silently lose a fact, and
+encrypting it loses nothing but the plaintext.
+
+**Two things learned while testing.** A sensitive object can only be found by its metadata, so the
+self-check had to search for it by its own name: the words in its summary and tags are encrypted, which
+means an encrypted row is not discoverable by what it says, only by what it is called. And `op=verify`
+skips sensitive rows automatically - their `path` lives inside the blob, so the record has no path to
+fingerprint - which is correct but is worth knowing before someone reads an "unchanged: 0" as a clean bill
+of health.
+
+**Self-check: 197 -> 199 checks** (three axes 6/6, 163/163, 30/30). The fixture now mentions a real file
+whose name carries an ASCII trigger word, and the check asserts the mined row comes back encrypted with no
+plaintext path or summary. Fault-injected against a copy of the writer that pushes straight into the index
+- the old behaviour - where the check fails with `encrypted: 0`.

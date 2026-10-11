@@ -456,9 +456,14 @@ function smoke() {
       `the tool ${BT}node${BT} is what runs this,`,
       `and ${FIXTURES} is a real directory.`,
       `a file that is not here: ${path.join(FIXTURES, "no-such-tool-xyz.exe")}`,
+      `and ${path.join(FIXTURES, `trojan-sample-${RUN}.bin`)} is a file that does exist,`,
       `and the port localhost:8123, with %DSH_HOME% set, a ${BT}.qqq9${BT} format mentioned once,`,
       `and a ${BT}.qqq8${BT} format mentioned ${BT}.qqq8${BT} twice.`,
     ].join(" ");
+    // A mined fact whose own text trips the sensitive patterns must not reach the index in the clear: this
+    // file's path carries an ASCII trigger word, so the row it produces has to come back encrypted.
+    const triggerFile = path.join(FIXTURES, `trojan-sample-${RUN}.bin`);
+    fs.writeFileSync(triggerFile, Buffer.from("sensitive-path fixture", "utf8"));
     const mineRecord = { type: "user/message", seq: 9, time: Date.now(), data: { role: "user", content: [{ type: "text", text: mineText }] } };
     const mineDir = path.join(HOME, "sessions", "--E-mine--", "session-99999999-8888-7777-6666-555555555555");
     fs.mkdirSync(mineDir, { recursive: true });
@@ -468,6 +473,13 @@ function smoke() {
     check("PORTABILITY", "smoke", "the first-run pass reads the history and reports what it found", mined.ok === true && mined.phase === "complete" && mined.sessionsTotal >= 2 && mined.found >= 4, JSON.stringify({ phase: mined.phase, total: mined.sessionsTotal, found: mined.found, added: mined.added }));
     const minedQuery = await call("library_query", { query: "mined", limit: 100 });
     const minedRows = (minedQuery.results || []).filter((o) => o.source === "session-mining");
+    // The mined sensitive row must be encrypted: metadata visible, body not.
+    // Query by the row own name: a sensitive object exposes only metadata, so the words that live in its
+    // summary and tags are not what it can be found by.
+    const encQuery = await call("library_query", { query: "trojan-sample", limit: 10 });
+    const encRow = (encQuery.results || []).find((o) => o.sensitive === true);
+    check("PORTABILITY", "smoke", "a mined fact whose text trips the sensitive patterns is encrypted, not stored in the clear", mined.encrypted >= 1 && !!encRow && !encRow.path && !encRow.summary, JSON.stringify({ encrypted: mined.encrypted, row: encRow ? { name: encRow.name, sensitive: encRow.sensitive, leakedPath: !!encRow.path } : null }));
+
     const minedNames = minedRows.map((o) => o.name);
     check("PORTABILITY", "smoke", "a command that resolves on this machine is mined as a tool", minedNames.includes("node"), JSON.stringify(minedNames).slice(0, 140));
     check("PORTABILITY", "smoke", "a real directory is mined, with its path", minedRows.some((o) => o.type === "env" && o.path && o.path.includes("fixtures")), JSON.stringify(minedRows.filter((o) => o.type === "env").map((o) => o.path)).slice(0, 140));
