@@ -810,3 +810,26 @@ READMEs now say so.
 
 **Self-check: 227 -> 235 checks** (three axes 6/6, 199/199, 30/30), with three fault injections in this round
 alone: protect that forgets the blob, revoke that skips the recovery, and the `$` anchor.
+
+## Round 22 - the rule change you can check instead of guessing
+
+Round 21 made the sensitive patterns able to see a record's path, which is the kind of change that quietly
+re-classifies history: records written months ago were judged by a rule that never looked at where a file
+lives. The sweep that followed was done with a one-off script, and anything that one-off is worth having as a
+capability - so `library_index op=review what=candidates` now does it as a read-only op: it lists the readable
+records the current patterns would seal and names the pattern that matched each one.
+
+Running it on the real library reproduced the one-off sweep exactly - **40 records**, down from the 43 the
+sweep found before the three credential stores were sealed - which is the cross-check that a permanent
+capability and a throwaway script agree about what the rule says. Those forty are the interesting result in
+themselves: `CredentialEnrollmentManager.exe` and two other Windows components, twenty-odd `@aws-sdk`
+`credential-provider-*` package directories, `dsh-credentials*`, and source files called `api-key.js`,
+`api-key.d.ts`, `credentials.schema.d.ts`. Every one of them *describes* credentials rather than being one.
+Sealing them would encrypt the map of this machine to satisfy a word, so they stay readable and the decision
+is recorded here rather than made silently by a pattern.
+
+**Self-check: 235 -> 239 checks** (three axes 6/6, 203/203, 30/30). The fixture for this one is neat because
+it uses the plugin's own semantics against it: a record cleared by a review is by definition one the patterns
+would seal again, so the cleared fixture must appear as a candidate with its pattern named, while the ordinary
+fixture beside it must not. Fault-injected against a copy that reports no candidates at all, where it fails
+with `candidates: 0, oursFound: false`.

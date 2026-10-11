@@ -122,6 +122,14 @@ needs - through the filesystem, which is where it was always going to read them 
 considers a record's `path` when deciding what is sensitive, so a sample named after its own hash is caught
 by where it lives rather than by a word in its name.
 
+Changing that rule is worth checking rather than assuming, because a rule that can see a path (or any new
+rule) can make records written long ago look sensitive in hindsight. `library_index op=review what=candidates`
+is read-only: it lists the readable records the current patterns would seal, with the pattern that matched
+each one. Run it after touching the patterns. It is how a rule meant to catch quarantined samples turned out
+never to match anything, and how the records that predate the rule seeing a path were found - forty of them,
+of which three were credential stores and thirty-seven were a toolchain that merely mentions credentials.
+
+
 
 ## Install
 

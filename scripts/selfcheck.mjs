@@ -540,6 +540,14 @@ function smoke() {
     const objBack = idxBack.objects.find((o) => o.id === plainId);
     check("PORTABILITY", "smoke", "revoking a protected object restores its fields instead of leaving a hollow record", revBack.ok === true && !!objBack && objBack.path === pFile && objBack.description === "looks ordinary" && !objBack.__content && !objBack.sensitivityReview, JSON.stringify({ ok: revBack.ok, pathBack: !!(objBack && objBack.path === pFile), descBack: !!(objBack && objBack.description === "looks ordinary"), blob: !!(objBack && objBack.__content) }));
 
+    // A record that a review cleared is, by definition, one the patterns would seal again - so the
+    // retrospective check must find it. The ordinary fixture beside it must not be listed.
+    const cand = await call("library_index", { op: "review", what: "candidates" });
+    const candIds = ((cand.samples && cand.samples.candidates) || []).map((c) => c.id);
+    const candByName = ((cand.samples && cand.samples.candidates) || []).find((c) => c.name === path.basename(triggerFile));
+    check("PORTABILITY", "smoke", "what=candidates lists readable records the patterns would seal, and names the pattern", cand.ok === true && candIds.includes(encRow.id) && !!candByName && Array.isArray(candByName.patterns) && candByName.patterns.length >= 1, JSON.stringify({ candidates: cand.candidates, oursFound: candIds.includes(encRow.id), patterns: candByName ? candByName.patterns : null }));
+    check("PORTABILITY", "smoke", "what=candidates leaves ordinary records alone", !candIds.includes(plainRec.id), JSON.stringify({ plainListed: candIds.includes(plainRec.id) }));
+
     const revList1 = await call("library_index", { op: "review" });
     const listedIds = ((revList1.samples && revList1.samples.reviewed) || []).map((r) => r.id);
     check("PORTABILITY", "smoke", "the object we cleared is listed as reviewed", revList1.ok === true && listedIds.includes(encRow.id), JSON.stringify({ reviewed: revList1.reviewed, ours: listedIds.includes(encRow.id) }));
