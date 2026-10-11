@@ -43,6 +43,7 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL, fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { zstdCompressSync } from "node:zlib";
+import { validateJsonSchemaValue } from "@deepseek-ai/dsh-tools";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const argv = process.argv.slice(2);
@@ -103,12 +104,44 @@ function stage(name, fn) {
 let tools = null;
 let unavailable = null;
 let hooks = null;
+// Filled by the register wrapper below and asserted near the summary: every result a tool returns must
+// satisfy that tool's declared output schema. Declared out here because the assertion lives outside the
+// try block that loads the plugin.
+const outputViolations = [];
 try {
   const mod = await import(pathToFileURL(PLUGIN).href);
   const map = new Map();
   hooks = new Map();
   const logger = { info: () => {}, warn: () => {} };
-  await mod.apply({ tools: { register: (t) => map.set(t.name, t) }, on: (name, handler) => hooks.set(name, handler), logger }, { bootstrap: "off" });
+  // Every result a tool returns is validated against that tool's own declared output schema, exactly as
+  // the host validates it before handing anything to the model. This is the door the user comes through:
+  // 2026-10-11 another session found that op=review what=sealed returned decision:null while the schema
+  // said decision must be a string - the listing was broken for every caller, and the self-check had been
+  // calling the same function through a fake context that skipped validation, so it never noticed.
+  await mod.apply({
+    tools: {
+      register: (t) => {
+        const schema = t.output && t.output.schema;
+        if (schema && typeof t.execute === "function") {
+          const inner = t.execute.bind(t);
+          t = {
+            ...t,
+            execute: async (args) => {
+              const result = await inner(args);
+              const violations = validateJsonSchemaValue(schema, result);
+              if (violations.length) {
+                outputViolations.push({ tool: t.name, op: (args && args.op) || "", what: (args && args.what) || "", violations: violations.slice(0, 3) });
+              }
+              return result;
+            },
+          };
+        }
+        map.set(t.name, t);
+      },
+      on: (name, handler) => hooks.set(name, handler),
+      logger,
+    },
+  }, { bootstrap: "off" });
   tools = map;
   // The notice is opt-in, so the same module is applied a second time with it switched on: that is
   // where the hook has to appear.
@@ -790,6 +823,14 @@ if (!QUICK) {
 if (!QUICK && s2.skipped === null && s4 && s4.skipped === null) {
   check("PORTABILITY", "idempotence", "the two traversal passes agree", s2.value === s4.value, `${s2.value} vs ${s4.value}`);
 }
+
+check(
+  "PORTABILITY",
+  "contract",
+  "every tool result satisfies its declared output schema",
+  outputViolations.length === 0,
+  outputViolations.length ? JSON.stringify(outputViolations.slice(0, 4)) : "no violations over every call made by this run"
+);
 
 const byAxis = {};
 for (const axis of AXES) {

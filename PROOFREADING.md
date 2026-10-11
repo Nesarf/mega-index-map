@@ -944,3 +944,40 @@ purpose, so you make the threshold honest instead.
 
 Backups: `library_export` remains the way to move or copy the store, and the README bullet that carries the
 cost figures now names the guard rail that keeps them from drifting.
+
+## Round 26 - the declaration and the result have to agree, and only the real door checks that
+
+Another session reported that `library_index op=review what=sealed` answered every caller with
+`tool "library_index" returned invalid output: "value.decision" must be a string`, while per-id review worked
+fine. Reproduced immediately: the op returned `decision: null`, the declared output schema said
+`decision: { type: "string" }`, and the host validates a tool result against its own schema before handing it
+to the model. The field is optional, so the fix is to omit it rather than to loosen the schema - a listing
+that cannot be returned to anyone is not a listing.
+
+What made this worth more than one line: the self-check had been calling the same functions through a fake
+context that skipped validation, so it never noticed. The registration point was therefore wrapped: **every
+result a tool returns is now validated against that tool's own declared output schema, on every call the
+self-check already makes**, and one assertion near the summary fails the run if anything violates it. That is
+the same door the model and the user come through, which is the only door worth testing.
+
+It found five classes of the same defect, not one:
+
+- `library_sessions op=search` returned `query` without declaring it.
+- `library_index op=verify` and `op=prune` returned the `type`/`source` scope echoes; `source` was declared as
+  a plain string while it is null whenever the op was not scoped. `null` there means "every type", which is
+  meaningful, so those two are declared nullable with `oneOf` instead of being dropped.
+- `library_sessions op=bootstrap` returned `startedAt`, `updatedAt`, `finishedAt`, `currentFile` and
+  `budgetMs`, none of them declared.
+- `verify.nextAfter` is a cursor and is null once the walk reaches the end: declared nullable.
+- `prune what=leads` returned `samples` as an **array** while every other prune branch returns an object;
+  it now returns `{ dropped: [...] }` like its siblings.
+
+A read-only probe of sixteen ops, plus a second probe against a throwaway home for the writing ops, now
+reports zero violations, and the self-check is green at 250 checks.
+
+The same session also reported that the per-file records from earlier mining still carried pre-rewrite sizes
+and hashes. That is what `op=verify confirm=true` is for, and a full pass over the library has been run:
+6,806 checked, 107 changed, 9 gone, 135 fingerprints written, 294 s, now 6,798 fingerprinted rows. The nine
+gone paths were temp scripts that had been cleaned up, plus two records that had recorded `%path%` and
+`%USERNAME%` as if they were paths - an environment variable name is not a path, and `op=prune what=dead`
+dropped them along with the rest.
