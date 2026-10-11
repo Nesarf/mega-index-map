@@ -1,6 +1,6 @@
 {
   "name": "mega-index-map",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Cross-workspace interop Library for DeepSeek Harness: record, index and search files, tools, environments, knowledge and work records across workspaces, with a self-extending file-format library.",
   "keywords": [
     "dsh",
@@ -30,7 +30,9 @@
   "scripts": {
     "build": "node -e \"console.log('mega-index-map: no build step; plain ESM plugin')\"",
     "check": "node scripts/check-ascii.mjs && node scripts/check-consistency.mjs && node scripts/check-portability.mjs && node scripts/check-isolation.mjs",
-    "selfcheck": "node scripts/selfcheck.mjs"
+    "selfcheck": "node scripts/selfcheck.mjs",
+    "bench": "node scripts/bench.mjs",
+    "bench:check": "node scripts/bench.mjs --check"
   },
   "peerDependencies": {
     "@deepseek-ai/dsh-tools": "*"

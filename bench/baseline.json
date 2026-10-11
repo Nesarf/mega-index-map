@@ -1,0 +1,14 @@
+{
+  "note": "Regression guard rail, not a benchmark report: these are medians from scripts/bench.mjs on one shared machine, and the check allows a wide multiple (5x by default) because the point is to catch an order-of-magnitude change rather than timing noise.",
+  "tolerance": 5,
+  "baseline": {
+    "objects": 5003,
+    "indexBytes": 2339522,
+    "queryMedianMs": 18,
+    "recordMedianMs": 32.1,
+    "rebuildMedianMs": 24,
+    "statusMedianMs": 15.5,
+    "node": "24.20.0",
+    "measuredAt": "2026-10-11T08:50:19.753Z"
+  }
+}

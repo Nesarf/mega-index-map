@@ -163,7 +163,11 @@ dsh plugin --profile web update mega-index-map
 - Measured cost at this machine's current scale - 11,649 objects, 6.0 MB index: a query takes about
   51 ms, recording one object 156 ms (it rewrites the index), a rebuild 124 ms (0 conflicts, 0 duplicates),
   and a status read 10 ms. At 5,000 objects the same three were 13 / 19 / 26 ms with a 2.3 MB index.
-  Back up or migrate with `library_export`.
+  Back up or migrate with `library_export`. Those figures have a guard rail now: `npm run bench` measures the
+  same four operations against a throwaway library, and `npm run bench:check` compares them with a
+  committed baseline, allowing a wide multiple on purpose (this machine is shared, and the point is to catch
+  an order-of-magnitude change rather than timing noise). It is not part of `npm run check` - a timed
+  measurement in the invariant chain would make the invariants slow and flaky.
 - Concurrent writers are serialised through a lock file: a lock whose owner died is taken over, and
   a busy one is waited for for up to two seconds before the write proceeds and says so in the log.
 - This package and the sibling cross-harness build are read-only with respect to each other; nothing

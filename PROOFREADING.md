@@ -910,3 +910,37 @@ check was asking a row that was readable to appear in a list of encrypted ones; 
 is sealed the moment it is written and serves as the positive case instead. And the lookup was by name, where
 an encrypted row exposes no path and its name is the miner's notion of the file rather than the file's - by
 id is the only reliable way to ask.
+
+## Round 25 - a measured claim needs something that keeps measuring it
+
+README.md says a query takes about 51 ms, recording an object 156 ms, a rebuild 124 ms. Those numbers were
+true when they were measured, by a script that lives outside this repository, and nothing was going to notice
+when they stopped being true. On a project whose whole argument is that observations should be checkable
+rather than remembered, a cost claim with no check behind it is the same defect as a fingerprint with no
+digest.
+
+`scripts/bench.mjs` builds a throwaway library of a known size in the OS temp directory, seeds it directly
+(seeding through `library_record` would measure the writer N times over and take minutes), and then times the
+four operations through the plugin's own code paths: a query, a record, a rebuild, a status read. Medians
+over several samples, printed as JSON-ish lines, with `--write-baseline` to record them and `--check` to
+compare against `bench/baseline.json`.
+
+Three deliberate choices, each of which is a way this could have been done wrong:
+
+- **The tolerance is wide (5x by default).** This machine is shared with other sessions; four consecutive
+  runs of the same size measured 0.96x to 1.14x against each other. A tight threshold would fail on someone
+  else's compile, and a guard rail that cries wolf gets deleted. The thing worth catching is an
+  order-of-magnitude change.
+- **It is not part of `npm run check`.** The invariants are deterministic and fast; a timed measurement inside
+  that chain would make them slow and flaky, which is how invariants stop being run.
+- **It never touches the real library.** A benchmark that measures the live store would be reporting on
+  whatever else the machine happened to be doing, and would take its size as an input it cannot control.
+
+Measured here at 5,003 objects and a 2.2 MB index: query 18.0 ms, record 32.1 ms, rebuild 24.0 ms, status
+15.5 ms. The check was verified in both directions: with the default tolerance all four report `ok` and it
+exits 0; with `--tolerance 0.01` all four report `REGRESSED` and it exits 1. That second run is this round's
+fault injection, and it is the only kind available to a timing guard - you cannot make the plugin slow on
+purpose, so you make the threshold honest instead.
+
+Backups: `library_export` remains the way to move or copy the store, and the README bullet that carries the
+cost figures now names the guard rail that keeps them from drifting.
