@@ -664,3 +664,37 @@ twice with different `RUN` suffixes and the library keeps both stages' rows, so 
 belonged to the previous stage and the check compared it against this stage's path. Scoping the lookup by
 the fixture's own basename fixed it - a fixture has to be identified per run not only when it is created,
 but also when it is looked up.
+
+## Round 18 - deleting the records whose path is really gone
+
+The fingerprint pass left a work item: 104 records pointing at paths that no longer exist (out of 8,930
+examined). The ask was to delete them, and the first thing that turned up is that the plugin could not:
+`op=prune` existed, but it removed *derived leads* by hit count and had no notion of "the path is gone".
+Deleting them by editing `index.json` is exactly what this plugin tells people not to do - it would bypass
+the lock, the append-only log and the confirmation the other writers respect.
+
+So `op=prune` gained `what=dead`: records whose recorded path no longer exists, scoped optionally by
+`type`/`source`, bounded by `maxFiles` and a budget, refusing without `confirm: true` and logging what it
+dropped. Three boundaries are the whole point of the feature, and each one is a wrong deletion avoided:
+
+- **An address is not a path.** `http://127.0.0.1:8100` is a recorded endpoint, and a stat cannot reach it;
+  treating that as "gone" would delete the record of a service that is merely not running (and it is the
+  same mistake round 16 fixed in `op=verify`, which is what made it visible here).
+- **Unreadable is not gone.** Only `ENOENT`/`ENOTDIR` count as dead. `stat` is the right test for existence
+  precisely because it does not open the file, which is why `C:\Windows\System32\config\SAM`,
+  `NTUSER.DAT` and `WebCacheV01.dat` - the four records `op=verify` could not *read* - are untouched here:
+  they exist, so their records stay.
+- **A sensitive record has no visible path.** Its `path` lives inside the encrypted blob, so it never
+  enters the candidate list and survives by construction rather than being deleted on evidence nobody can
+  see.
+
+**Measured on the real library.** Dry run: 8,930 records examined, **104 dead**, 1 unreadable (kept:
+`C:\pagefile.sys`, EINVAL), 0 unexamined. Confirmed run: **104 dropped**, 11,067 -> 10,963 objects, index
+still 6.8 MB with the same 6,522 fingerprinted rows. By type: tool 42, env 31, file 25, work_record 5,
+knowledge 1; by origin: session-mining 82, detect 13, adb 5. The dry run's number matched the number
+`op=verify` had reported independently, which is the check that the two ops agree about what "gone" means.
+
+**Self-check: 203 -> 211 checks** (three axes 6/6, 175/175, 30/30): the refusal deletes nothing, the
+confirmed run drops the record whose file was removed, and an endpoint sharing the same source survives.
+Fault-injected against a copy with the address exclusion removed - the endpoint is deleted and the check
+fails with `endpointAlive: false`.

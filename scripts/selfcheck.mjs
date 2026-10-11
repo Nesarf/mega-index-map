@@ -567,6 +567,19 @@ function smoke() {
 
     const vSlice = await call("library_index", { op: "verify", type: "file", maxFiles: 1 });
     check("PORTABILITY", "smoke", "verify bounds its work and hands back a cursor", vSlice.checked <= 1 && (vSlice.remaining === 0 || typeof vSlice.nextAfter === "string"), JSON.stringify({ checked: vSlice.checked, remaining: vSlice.remaining, nextAfter: vSlice.nextAfter ? "yes" : null }));
+
+    // ---- op=prune what=dead: drop records whose path is gone, and only those ----
+    // The drift fixture's file was deleted earlier in this stage, so its record is genuinely dead; the
+    // endpoint record shares the same source and must survive, because an address is not a missing path.
+    const deadDry = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 500 });
+    check("PORTABILITY", "smoke", "prune what=dead refuses without confirm and reports what it found", deadDry.ok === false && deadDry.dead >= 1 && /confirm/.test(String(deadDry.note)), JSON.stringify({ ok: deadDry.ok, dead: deadDry.dead, unreadable: deadDry.unreadable }));
+    const stillRecorded = (await call("library_query", { query: "verify-fixture", limit: 20 })).results.some((o) => o.name === `verify-fixture-${RUN}`);
+    check("PORTABILITY", "smoke", "a refused dead-prune deletes nothing", stillRecorded === true, "the record vanished without a confirmation");
+    const deadRun = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 500, confirm: true, reason: "selfcheck dead prune" });
+    const nowGone = (await call("library_query", { query: "verify-fixture", limit: 20 })).results.some((o) => o.name === `verify-fixture-${RUN}`);
+    const endpointAlive = (await call("library_query", { query: "verify-endpoint-fixture", limit: 20 })).results.some((o) => o.name === "verify-endpoint-fixture");
+    check("PORTABILITY", "smoke", "a confirmed dead-prune drops the record whose file is gone", deadRun.ok === true && deadRun.dropped >= 1 && nowGone === false, JSON.stringify({ dropped: deadRun.dropped, goneAfterwards: !nowGone }));
+    check("PORTABILITY", "smoke", "an endpoint is not a dead path and survives the prune", endpointAlive === true, JSON.stringify({ endpointAlive, dead: deadRun.dead }));
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
       ["library_encoding", {}],
