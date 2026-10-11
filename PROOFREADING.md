@@ -768,3 +768,45 @@ all because it sends someone to fix something that is not broken.
 directory records to be excluded and the arithmetic to add up. Fault-injected against a copy that keeps
 them in the denominator, where it fails with `fingerprintable: 24` against a recorded/addresses/directories
 split of 26/2/2.
+
+## Round 21 - the review that ate a record, and the anchor that could never match
+
+Two real defects came out of using op=review on live data, and both were found by a probe or a check rather
+than by reasoning.
+
+**The one that lost data.** `op=review decision=revoke` strips the review marker and lets the patterns decide
+again. For an object that had been *cleared* that is right: its fields were in the clear. For an object that
+had been *protected* it is wrong, because a protected object keeps its path, description and summary inside
+the blob - so revoking it wrote back a record carrying nothing but its name. Nine records were hollowed out
+that way before the probe noticed, the sample among them. The fix recovers the plaintext by decrypting
+first, then re-applies the patterns, and the check that was missing is now in place: protect an object,
+revoke it, and require its original path and description to come back. Fault-injected, that check fails with
+`pathBack: false, descBack: false`, which is the shape of the damage. The wreckage also needed a way out, so
+`op=prune what=hollow` removes a record that carries a name and nothing else - no path, no description, no
+summary, no tags, no body, no fingerprint. Being strict about that definition is the point: it is a cleanup
+for a write bug, not a general delete. Nine records were re-registered from disk afterwards.
+
+**The one that could never fire.** A pattern was added to catch quarantined samples, because such a record is
+material and nothing on its path says so: a sample is usually named after its own hash. The pattern looked
+right and matched a bare path in isolation - and never matched inside the plugin. The blob the rule is given
+is `[name, description, summary, path, tags].join(" ")`, so a path is *never* at the end of the string and a
+pattern anchored with `$` after it cannot match, in any record, ever. Name-based patterns hid this for a
+whole round, because they match anywhere. The pattern now anchors on a whitespace-or-end boundary, the
+self-check asserts that a path alone can make an object sensitive, and it was fault-injected by putting the
+`$` back, where it fails with `sensitive: false`. The fixture also had to move out of the traversal root,
+which taught the fixture lesson a third time: a new fixture inside a scanned directory breaks an unrelated
+assertion.
+
+Because the path never participated in the rule, records that *should* be encrypted may have been written in
+the clear before this round - path-shaped exposure is a gap that predates the fix, and sweeping the real
+library with the corrected rule is the next thing to do rather than something already done.
+
+**And the principle the episode settled.** The Library seals *references*, never material: a sealed record
+hides where a sample is and what it is called, while the file stays where it is, because this plugin only
+writes inside `$DSH_HOME`. Software that learns from a corpus reads the corpus from disk. What makes that
+work is leaving the two surrounding layers readable - the directory records that say where a corpus lives,
+and the tooling that fetches, stores and scans it. Seal the items, keep the anchors and the code. Both
+READMEs now say so.
+
+**Self-check: 227 -> 235 checks** (three axes 6/6, 199/199, 30/30), with three fault injections in this round
+alone: protect that forgets the blob, revoke that skips the recovery, and the `$` anchor.

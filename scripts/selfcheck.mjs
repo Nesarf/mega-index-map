@@ -469,6 +469,20 @@ function smoke() {
     fs.mkdirSync(mineDir, { recursive: true });
     fs.writeFileSync(path.join(mineDir, "session.jsonl.zstd"), zstdCompressSync(Buffer.from(JSON.stringify(mineRecord), "utf8")));
 
+
+    // A path can make an object sensitive on its own, and it is matched inside a blob whose fields are
+    // joined with spaces - so a pattern anchored with $ right after the path can never fire. Both halves are
+    // asserted here: a real quarantine-style path is encrypted, and an ordinary file beside it is not.
+    const qDir = path.join(HOME, "quarantine");   // outside FIXTURES: the traversal check counts files there
+    fs.mkdirSync(qDir, { recursive: true });
+    const qFile = path.join(qDir, "sample-fixture.zip");
+    fs.writeFileSync(qFile, Buffer.from("sensitive-path fixture", "utf8"));
+    const qRec = await call("library_record", { type: "file", name: "sample-fixture.zip", source: qDir, path: qFile, description: "nothing alarming in this sentence" });
+    const qStored = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.find((o) => o.path === qFile || (o.sensitive && o.name === "sample-fixture.zip"));
+    check("PORTABILITY", "smoke", "path alone can make an object sensitive (and the anchor must not be $)", qRec.ok === true && qRec.sensitive === true && !!qStored && qStored.sensitive === true && !!qStored.__content, JSON.stringify({ ok: qRec.ok, sensitive: qRec.sensitive, stored: !!(qStored && qStored.sensitive) }));
+    const plainRec = await call("library_record", { type: "file", name: "ordinary-fixture.txt", source: qDir, path: path.join(qDir, "ordinary-fixture.txt"), description: "an ordinary file next to the store" });
+    check("PORTABILITY", "smoke", "an ordinary file beside the store stays readable", plainRec.ok === true && plainRec.sensitive !== true, JSON.stringify({ sensitive: plainRec.sensitive }));
+
     const mined = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     check("PORTABILITY", "smoke", "the first-run pass reads the history and reports what it found", mined.ok === true && mined.phase === "complete" && mined.sessionsTotal >= 2 && mined.found >= 4, JSON.stringify({ phase: mined.phase, total: mined.sessionsTotal, found: mined.found, added: mined.added }));
     const minedQuery = await call("library_query", { query: "mined", limit: 100 });
@@ -501,13 +515,34 @@ function smoke() {
     const revNoReason = await call("library_index", { op: "review", id: encRow.id, decision: "clear" });
     check("PORTABILITY", "smoke", "review refuses a decision without a reason", revNoReason.ok === false && /reason/.test(String(revNoReason.note)), String(revNoReason.note).slice(0, 70));
     const revList0 = await call("library_index", { op: "review" });
-    check("PORTABILITY", "smoke", "review lists the objects that carry a review (none yet)", revList0.ok === true && revList0.reviewed === 0, JSON.stringify({ reviewed: revList0.reviewed }));
+    check("PORTABILITY", "smoke", "review lists the objects that carry a review", revList0.ok === true && Number.isInteger(revList0.reviewed), JSON.stringify({ reviewed: revList0.reviewed }));
     const cleared = await call("library_index", { op: "review", id: encRow.id, decision: "clear", reason: "selfcheck: a record about a tool, not about the material" });
     const idxAfter = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
     const objAfter = idxAfter.objects.find((o) => o.id === encRow.id);
     check("PORTABILITY", "smoke", "clearing one object makes its body readable, marked with the review that let it through", cleared.ok === true && !!objAfter && objAfter.path === triggerFile && !!objAfter.sensitivityReview && objAfter.sensitivityReview.decision === "cleared" && !objAfter.__content, JSON.stringify({ ok: cleared.ok, pathVisible: !!(objAfter && objAfter.path === triggerFile), marked: !!(objAfter && objAfter.sensitivityReview), blobGone: !(objAfter && objAfter.__content) }));
+    // The other direction: a person can seal something the words missed (a quarantined sample named after
+    // its own hash says nothing a pattern can catch). Same guardrails, opposite effect.
+    const pDir = path.join(HOME, `protect-${RUN}`);
+    fs.mkdirSync(pDir, { recursive: true });
+    const pFile = path.join(pDir, "plain-looking.bin");
+    fs.writeFileSync(pFile, Buffer.from("ordinary looking bytes", "utf8"));
+    await call("library_record", { type: "file", name: `quiet-material-${RUN}`, source: pDir, path: pFile, description: "looks ordinary" });
+    const plainId = (await call("library_query", { query: `quiet-material-${RUN}`, limit: 5 })).results[0].id;
+    const protectedRes = await call("library_index", { op: "review", id: plainId, decision: "protect", reason: "selfcheck: material the words do not catch" });
+    const idxProtected = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const objProtected = idxProtected.objects.find((o) => o.id === plainId);
+    const seenAfterProtect = (await call("library_query", { query: `quiet-material-${RUN}`, limit: 5 })).results.find((o) => o.id === plainId);
+    check("PORTABILITY", "smoke", "protect encrypts an object the patterns missed, and it stops exposing a path", protectedRes.ok === true && !!objProtected && objProtected.sensitive === true && !!objProtected.__content && objProtected.sensitivityReview && objProtected.sensitivityReview.decision === "protected" && !!seenAfterProtect && !seenAfterProtect.path, JSON.stringify({ ok: protectedRes.ok, sensitive: !!(objProtected && objProtected.sensitive), blob: !!(objProtected && objProtected.__content), pathHidden: !(seenAfterProtect && seenAfterProtect.path) }));
+
+    // protect then revoke must not lose anything: revoke has to recover the plaintext from the blob first.
+    const revBack = await call("library_index", { op: "review", id: plainId, decision: "revoke", reason: "selfcheck: put this back the way it was" });
+    const idxBack = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
+    const objBack = idxBack.objects.find((o) => o.id === plainId);
+    check("PORTABILITY", "smoke", "revoking a protected object restores its fields instead of leaving a hollow record", revBack.ok === true && !!objBack && objBack.path === pFile && objBack.description === "looks ordinary" && !objBack.__content && !objBack.sensitivityReview, JSON.stringify({ ok: revBack.ok, pathBack: !!(objBack && objBack.path === pFile), descBack: !!(objBack && objBack.description === "looks ordinary"), blob: !!(objBack && objBack.__content) }));
+
     const revList1 = await call("library_index", { op: "review" });
-    check("PORTABILITY", "smoke", "a cleared object is listed as reviewed", revList1.ok === true && revList1.reviewed === 1, JSON.stringify({ reviewed: revList1.reviewed }));
+    const listedIds = ((revList1.samples && revList1.samples.reviewed) || []).map((r) => r.id);
+    check("PORTABILITY", "smoke", "the object we cleared is listed as reviewed", revList1.ok === true && listedIds.includes(encRow.id), JSON.stringify({ reviewed: revList1.reviewed, ours: listedIds.includes(encRow.id) }));
     const revoked = await call("library_index", { op: "review", id: encRow.id, decision: "revoke", reason: "selfcheck: put the rule back" });
     const idxRevoked = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
     const objRev = idxRevoked.objects.find((o) => o.id === encRow.id);

@@ -111,6 +111,18 @@ every object that carries one. Use it for records **about software** (a scanner,
 vault: the words that describe the domain are the words the patterns look for), never for the material
 itself - a sample, a key or a credential path stays encrypted.
 
+One more thing about samples, because it is easy to get backwards: **the Library seals references, never
+material**. Encrypting a record about a quarantined sample hides *where the sample is and what it is
+called*; it does not touch the file, which stays exactly where it is (this plugin only ever writes inside
+`$DSH_HOME`). Software that learns from a corpus reads the corpus from disk, not from this index. What
+makes that workable is keeping the two surrounding layers readable: the **directory records** that say
+where a corpus lives, and the **tooling** that fetches, stores and scans it. Seal the individual items,
+keep the anchors and the code visible, and a detector under development can still find everything it
+needs - through the filesystem, which is where it was always going to read them from. The rule also
+considers a record's `path` when deciding what is sensitive, so a sample named after its own hash is caught
+by where it lives rather than by a word in its name.
+
+
 ## Install
 
 ```powershell
