@@ -833,3 +833,18 @@ it uses the plugin's own semantics against it: a record cleared by a review is b
 would seal again, so the cleared fixture must appear as a candidate with its pattern named, while the ordinary
 fixture beside it must not. Fault-injected against a copy that reports no candidates at all, where it fails
 with `candidates: 0, oursFound: false`.
+
+The new op immediately paid for itself twice. First, it reproduced the one-off sweep's number exactly. Second,
+reading what the patterns would seal showed what the categories actually contain: six records matched the
+bank-card/ID/passport pattern and every one of them is a Sogou input-method "third passport" file - a cached
+social-login icon (QQ, weixin, sina, renren) or its ini, where "passport" means an account token rather than a
+document. And five matched the malware/virus patterns: YARA, YARA-X and ClamAV, the three tools this Library
+deliberately cleared with a reason. A record appearing in this list is not an accusation; it is the question
+"should this be sealed?", and for those three the answer is already on file.
+
+Reading the same report also exposed a wrong label: op=status counted every review marker as "cleared by
+review", so four objects that had been *sealed* by a review were being reported next to the five that had been
+opened. Cleared and protected are opposite decisions and adding them together produces a number nobody can act
+on - the same class of mistake as the fingerprint denominator in round 20, in a smaller place. They are now
+counted separately, with a check that reads the file's own markers and requires the two counts to match, and a
+fault injection that puts them back together (one failure, as it should).
