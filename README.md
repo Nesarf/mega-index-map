@@ -18,11 +18,18 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
 - `library_record` - record an object (change detection routes verify/confirm; a change to the immutable
   class is refused until the user decides, and is then recorded with `confirm: true` and a `reason`, which
   the log keeps as `record-confirm`)
-- `library_index` - three jobs on the index: `op=rebuild` (default) dedupes/sorts and reports conflicts;
+- `library_index` - four jobs on the index: `op=rebuild` (default) dedupes/sorts and reports conflicts;
   `op=audit dir=<path>` reconciles a directory with the Library read-only, both directions - entries on
   disk with no record, and records whose path no longer exists (recorded is not the same as addressable);
   `op=index dir=<path> confirm=true` registers the missing entries, bounded by depth and an entry
-  ceiling, with the sensitive-content rule applied.
+  ceiling, with the sensitive-content rule applied (a file also gets a sha256 while we are standing on it).
+  `op=verify` checks identity rather than existence: for every record that points at a regular file it
+  recomputes the fingerprint and reports unchanged / changed / gone / never fingerprinted / unreadable -
+  `gone` and `unreadable` stay separate findings, because a locked file is not a missing one. Read-only
+  unless `confirm=true`, which also records the observed sha256 (how a baseline is established or
+  refreshed); bounded by `maxFiles` and a time budget, with `after=<id>` as a cursor so a large library
+  walks in slices. Above `maxHashBytes` (default 16 MiB) a file is hashed by size plus a head and a tail
+  slice, and the result says `partial: true` rather than passing itself off as a full digest.
   `op=prune confirm=true` drops derived rows that no longer qualify - mined format leads seen fewer
   than `keepHits` times - so a rule tightened later can be applied to what is already recorded. A drive root is refused: an indexer that walks a whole
   disk is the scan this Library exists to replace

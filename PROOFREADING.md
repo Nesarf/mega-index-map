@@ -522,3 +522,44 @@ the noise in the first place. `op=prune` is tested for both halves of its contra
 one above. One of those checks failed first because it swept every row whose text mentions "mined" - 
 including two rows the test itself had written by hand - and now looks only at rows the miner wrote, which
 it identifies by the tag it sets.
+
+## Round 14 - identity, not just existence: hash-based drift (`op=verify`)
+
+Round 8 reconciled the Library with the disk in one direction of *existence*: `op=audit` reports records
+whose path is gone, and `op=index` registers entries that have no record. What neither could answer is
+whether a recorded file is **still the same file** - and with 2,578 mined tool records and thousands of
+indexed paths, "is this archive still accurate?" had no answer at all. The idea comes from the host
+file-integrity tradition (Tripwire, Wazuh, osquery's file tables): record a fingerprint, then compare.
+
+**What was added.** `op=index` now fingerprints a file while it is already being stat'ed (`sha256`, `size`,
+`partial`, `hashedAt`). `library_index op=verify` walks records that point at regular files and recomputes
+the digest, reporting **unchanged / changed / gone / never fingerprinted / unreadable**. It is read-only;
+`confirm=true` also writes the observed fingerprints back, which is how a baseline is established or
+refreshed. Bounded by `maxFiles` and a time budget, with `after=<id>` as a cursor so a large library walks
+in slices instead of one long call. Above `maxHashBytes` (default 16 MiB) a file is hashed by size plus a
+head and a tail slice and the answer carries `partial: true` - a bounded read that says so, rather than a
+full digest that would mean reading a 100 GB file to answer a yes/no question.
+
+**Two decisions worth keeping.** (1) `gone` and `unreadable` are separate findings: a file held open by
+another process, or one we may not read, must not be reported as missing, because that is a wrong answer
+in the direction that matters. (2) Identity is asked separately from format: `library_sniff` answers "what
+is this?" from magic bytes, `op=verify` answers "are these still the same bytes" - one can change while
+the other stays the same, so folding them together would lose both answers.
+
+**The bug this round found, and how.** The first version reported the fixture file as `gone` even though it
+was right there. The reason: `hashFile()` sat at module scope while the number-clamping helper it called is
+scoped to the tool's `execute`, so every call threw `ReferenceError: clampInt is not defined` - and the
+catch block, written to tolerate a vanished path, swallowed it and filed it under `missing`. The fix was
+not only to clamp locally: it was to make the report distinguish the two findings, which is what made the
+error message visible at all (`error: "clampInt is not defined"` in an `unreadable` entry). A catch broad
+enough to cover "the file is gone" had been covering "my own code is broken" too. Verified by hand before
+and after: the sha256 of a file containing `hello` is `2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824`,
+which the tool reproduced.
+
+**Self-check: 185 -> 197 checks** (three axes 6/6, 161/161, 30/30). The fixture flow is the whole
+lifecycle: record a file, verify read-only (writes nothing), verify with `confirm` (records), verify again
+(unchanged), append one byte (changed, with both fingerprints as evidence), delete it (gone), and a
+`maxFiles: 1` slice that hands back a cursor. Both new assertions were fault-injected against deliberately
+broken copies - one where the comparison is defeated (the changed-detection check fails), one where
+`confirm` never writes back (the recording check fails with `written: 0`) - so they detect these
+regressions rather than passing by coincidence.

@@ -511,6 +511,36 @@ function smoke() {
     const afterPrune = (await call("library_query", { query: ".pruneme" })).results.some((o) => o.name === ".pruneme");
     const keptRow = (await call("library_query", { query: ".keepme" })).results.some((o) => o.name === ".keepme");
     check("PORTABILITY", "smoke", "a confirmed prune drops the row below the threshold and keeps the one above", pruned.ok === true && pruned.dropped >= 1 && afterPrune === false && keptRow === true, JSON.stringify({ dropped: pruned.dropped, gone: !afterPrune, kept: keptRow }));
+
+    // ---- op=verify: identity, not existence (hash-based drift) ----
+    // A record whose path is a regular file can be checked byte-for-byte against a recorded fingerprint.
+    const vDir = path.join(FIXTURES, `verify-${RUN}`);
+    fs.mkdirSync(vDir, { recursive: true });
+    const vFile = path.join(vDir, "drift-target.bin");
+    fs.writeFileSync(vFile, Buffer.from("mega-index-map verify fixture v1", "utf8"));
+    await call("library_record", { type: "file", name: `verify-fixture-${RUN}`, source: vDir, path: vFile, description: "fingerprint fixture" });
+
+    const vRead = await call("library_index", { op: "verify", type: "file", maxFiles: 500 });
+    check("PORTABILITY", "smoke", "verify is read-only: it reports what it would record and writes nothing", vRead.ok === true && vRead.written === 0 && vRead.neverHashed >= 1, JSON.stringify({ written: vRead.written, never: vRead.neverHashed, checked: vRead.checked }));
+
+    const vWrite = await call("library_index", { op: "verify", type: "file", maxFiles: 500, confirm: true, reason: "selfcheck fingerprint" });
+    check("PORTABILITY", "smoke", "verify with confirm records the observed fingerprints", vWrite.ok === true && vWrite.written >= 1, JSON.stringify({ written: vWrite.written, never: vWrite.neverHashed }));
+
+    const vSame = await call("library_index", { op: "verify", type: "file", maxFiles: 500 });
+    check("PORTABILITY", "smoke", "verify reports an untouched file as unchanged", vSame.unchanged >= 1 && vSame.changed === 0, JSON.stringify({ unchanged: vSame.unchanged, changed: vSame.changed }));
+
+    fs.appendFileSync(vFile, Buffer.from(" + drift", "utf8"));
+    const vDrift = await call("library_index", { op: "verify", type: "file", maxFiles: 500 });
+    const driftSample = (vDrift.samples && vDrift.samples.changed ? vDrift.samples.changed : []).find((s) => s.path === vFile);
+    check("PORTABILITY", "smoke", "verify reports a modified file as changed, with both fingerprints as evidence", vDrift.changed >= 1 && !!driftSample && driftSample.was !== driftSample.now, JSON.stringify(driftSample || {}));
+
+    fs.rmSync(vFile);
+    const vGone = await call("library_index", { op: "verify", type: "file", maxFiles: 500 });
+    const goneSample = (vGone.samples && vGone.samples.missing ? vGone.samples.missing : []).find((s) => s.path === vFile);
+    check("PORTABILITY", "smoke", "verify reports a removed file as gone", vGone.missing >= 1 && !!goneSample, JSON.stringify({ missing: vGone.missing }));
+
+    const vSlice = await call("library_index", { op: "verify", type: "file", maxFiles: 1 });
+    check("PORTABILITY", "smoke", "verify bounds its work and hands back a cursor", vSlice.checked <= 1 && (vSlice.remaining === 0 || typeof vSlice.nextAfter === "string"), JSON.stringify({ checked: vSlice.checked, remaining: vSlice.remaining, nextAfter: vSlice.nextAfter ? "yes" : null }));
     // ASCII axis at runtime: nothing a tool returns to the model may carry non-Han non-ASCII text.
     for (const [name, args] of [
       ["library_encoding", {}],
