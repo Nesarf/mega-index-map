@@ -602,6 +602,9 @@ function smoke() {
     const idxFile = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
     const sensCount = idxFile.objects.filter((o) => o.sensitive).length;
     const fpCount = idxFile.objects.filter((o) => typeof o.sha256 === "string" && o.sha256).length;
+    // A directory cannot be fingerprinted, so it must not inflate the denominator and make the coverage
+    // look like a gap. The fixture creates a real directory record, so the two counts must differ.
+    check("PORTABILITY", "smoke", "status counts directories out of the fingerprint denominator", st.paths.directories >= 1 && st.fingerprints.fingerprintable === Math.max(0, st.paths.recorded - st.paths.addresses - st.paths.directories), JSON.stringify({ directories: st.paths.directories, recorded: st.paths.recorded, addresses: st.paths.addresses, fingerprintable: st.fingerprints.fingerprintable }));
     check("PORTABILITY", "smoke", "status reports the whole library consistently", st.ok === true && st.objects.total === idxFile.objects.length && st.sensitive.encrypted === sensCount && st.fingerprints.fingerprinted === fpCount && st.integrity.sensitiveWithoutBlob === 0, JSON.stringify({ total: st.objects.total, expected: idxFile.objects.length, encrypted: st.sensitive.encrypted, sensCount, fingerprinted: st.fingerprints.fingerprinted, fpCount, withoutBlob: st.integrity.sensitiveWithoutBlob }));
     check("PORTABILITY", "smoke", "status quotes the last disk-side findings from the log instead of walking the disk", st.log.entries > 0 && !!st.lastReported.verify && !!st.lastReported.review, JSON.stringify({ entries: st.log.entries, verify: !!(st.lastReported && st.lastReported.verify), review: !!(st.lastReported && st.lastReported.review) }));
 

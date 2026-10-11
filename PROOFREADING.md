@@ -743,3 +743,28 @@ stops counting encrypted objects fails with `encrypted: 0` against a real count 
 One ordering lesson, again from the fixture rather than the code: the status assertions were first placed
 before the verify fixtures ran, so there was no verify entry in the log yet and the check failed for the
 right reason. A check that reads what earlier checks produced has to be placed after them.
+
+## Round 20 - the whole-library number has to be trustworthy
+
+Round 19 added `op=status` precisely so that "what does this Library hold" stops being a set of figures
+someone worked out by hand. The first real use of it produced a figure that was wrong: **73.8% fingerprint
+coverage**, which reads as a quarter of the archive unverified. It counted 2,300 recorded *directories* in
+the denominator. A directory cannot be fingerprinted - `op=verify` skips it by design, since there is
+nothing at a directory to hash - so the denominator was asking for something that can never happen, and
+the coverage number was reporting a gap that did not exist. The honest figure was 6,532 of 6,536, i.e.
+**99.9%**, and the difference between those two numbers is the difference between an observability feature
+and a misleading one.
+
+`op=status` now counts directory-shaped rows (a `dir`/`mined:dir` tag, or a `workspace` type) out of the
+denominator and reports them separately, and says in the code that a directory which does not announce
+itself can only be recognised by `stat()`, which this op deliberately does not do - so the number is
+honest about being an inferred denominator rather than a measured one.
+
+The lesson is the one that keeps recurring in this file: a figure produced by counting is only as good as
+its denominator, and a wrong denominator makes a healthy system look sick, which is worse than no number at
+all because it sends someone to fix something that is not broken.
+
+**Self-check: 225 -> 227 checks** (three axes 6/6, 191/191, 30/30). The new assertion requires the fixture's
+directory records to be excluded and the arithmetic to add up. Fault-injected against a copy that keeps
+them in the denominator, where it fails with `fingerprintable: 24` against a recorded/addresses/directories
+split of 26/2/2.
