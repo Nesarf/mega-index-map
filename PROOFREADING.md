@@ -981,3 +981,42 @@ and hashes. That is what `op=verify confirm=true` is for, and a full pass over t
 gone paths were temp scripts that had been cleaned up, plus two records that had recorded `%path%` and
 `%USERNAME%` as if they were paths - an environment variable name is not a path, and `op=prune what=dead`
 dropped them along with the rest.
+
+## Round 27 - coverage that means what it says
+
+A full fingerprint pass was run and reported 97.6% of 6,940 fingerprintable paths. The request that produced
+it was simply "cover the whole library", and the honest answer turned out to include a measurement defect,
+because four fifths of the apparent gap was not a gap at all:
+
+- 2,383 of the paths are **directories**, which cannot be fingerprinted and must not sit in the denominator.
+- 133 were records created *after* the previous pass - coverage is a moving target, and a pass closes it only
+  up to the moment it ends.
+- 4 are files Windows keeps locked (NTUSER.DAT, WebCacheV01.dat, SAM, and pagefile.sys, which cannot be read
+  as a file at all).
+
+The denominator was wrong by 166: `op=status` recognises a directory by a tag written by `op=index` or by
+mining, or by the record being a workspace - and a directory row mined before those tags existed (a plain
+`DSH_HOME` with path `E:\dsh-home`) carries neither. Status deliberately never touches the disk, so it could
+not find out, and those rows sat in the denominator as files nobody could fingerprint.
+
+The fix puts the fact where it was already paid for: `op=verify` stats every path anyway, so when it finds a
+directory it now records `pathKind: "directory"` on the record (only under `confirm: true`, and only when the
+marker is not already there), and `op=status` counts that marker beside the tag and the workspace type. The
+walk's own `info.kind` could not be used for this: `hashFile` answers `not-a-file` for a directory and for a
+device alike, so the marker comes from one more `statSync` on the paths that are not regular files.
+
+Two checks hold it: a directory record written without any tag must come back with the marker and no digest,
+and `op=status` must count it out of the denominator. Fault-injected by removing the marker write, where both
+fail. Self-check 250 -> 254 checks.
+
+Measured, before and after on the real library:
+
+| | before | after |
+|---|---|---|
+| fingerprintable paths | 7,033 | 6,867 |
+| directories counted | 2,217 | 2,385 |
+| coverage | 97.6% | 99.9% |
+| fingerprinted rows | 6,730 | 6,863 |
+
+The remaining four are the locked files above: `op=verify` reports them as unreadable and keeps them, because
+a locked file is not a missing one, and they stay in the denominator rather than being quietly excused.

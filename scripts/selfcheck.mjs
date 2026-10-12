@@ -670,6 +670,18 @@ function smoke() {
     check("PORTABILITY", "smoke", "verify with confirm records the observed fingerprints", vWrite.ok === true && vWrite.written >= 1, JSON.stringify({ written: vWrite.written, never: vWrite.neverHashed }));
 
     const vSame = await call("library_index", { op: "verify", type: "file", maxFiles: 500 });
+    // A directory whose record does not say so: mined rows look like this (a path with no dir tag and a
+    // name without "(directory)"), and only a pass that stats the path can tell. It must write that down,
+    // because op=status never touches the disk and would otherwise count the directory as an
+    // un-fingerprinted file.
+    const dirRec = await call("library_record", { type: "env", name: `fixture-directory-${RUN}`, source: "selfcheck", path: FIXTURES, description: "a directory recorded as if it were a path" });
+    const stBeforeDir = await call("library_index", { op: "status" });
+    const dirMarked = await call("library_index", { op: "verify", type: "env", maxFiles: 500, confirm: true, reason: "selfcheck: mark directory paths" });
+    const stAfterDir = await call("library_index", { op: "status" });
+    const dirObj = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.find((o) => o.id === dirRec.id);
+    check("PORTABILITY", "smoke", "a directory path is marked by the pass that stat'ed it", dirMarked.ok === true && dirMarked.marked >= 1 && !!dirObj && dirObj.pathKind === "directory" && !dirObj.sha256, JSON.stringify({ marked: dirMarked.marked, pathKind: dirObj && dirObj.pathKind, sha256: !!(dirObj && dirObj.sha256) }));
+    check("PORTABILITY", "smoke", "status counts a marked directory out of the denominator", stAfterDir.paths.directories > stBeforeDir.paths.directories, JSON.stringify({ before: stBeforeDir.paths.directories, after: stAfterDir.paths.directories }));
+
     check("PORTABILITY", "smoke", "verify reports an untouched file as unchanged", vSame.unchanged >= 1 && vSame.changed === 0, JSON.stringify({ unchanged: vSame.unchanged, changed: vSame.changed }));
 
     fs.appendFileSync(vFile, Buffer.from(" + drift", "utf8"));
