@@ -56,6 +56,24 @@ for (const f of files) {
   if (/\.ya?ml$/.test(rel) && text.split("\n").some((l) => l.startsWith("\t"))) problems.push(`${rel}: tab indentation in YAML`);
 }
 
+// --- manifest: this file is a PLUGIN manifest, not a profile one ------------------------------
+// On 2026-10-14 a DSH process that created a profile with the plugin directory as its working directory
+// overwrote package.json with that profile's skeleton (name "dsh-profile-web", private, dsh.profile).
+// The plugin was then left without "type", "main" or dsh.bundle.patch - it could not load on any host -
+// while every other check in this repository still passed. The manifest is therefore asserted here, and
+// the profile-skeleton signature is named outright so the next occurrence reads as the incident it is.
+const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, "package.json"), "utf8"));
+if (pkg.name !== "mega-index-map") problems.push(`package.json: name is ${JSON.stringify(pkg.name)}, expected "mega-index-map"`);
+if (typeof pkg.version !== "string" || !/^\d+\.\d+\.\d+/.test(pkg.version)) problems.push(`package.json: version ${JSON.stringify(pkg.version)} is not a release version`);
+if (pkg.type !== "module") problems.push(`package.json: type is ${JSON.stringify(pkg.type)}, expected "module" (lib/index.js is ESM)`);
+if (pkg.private === true || (pkg.dsh !== undefined && pkg.dsh.profile !== undefined)) problems.push("package.json: this is a profile manifest (private / dsh.profile), not the plugin manifest");
+for (const [label, rel] of [["main", pkg.main], ["dsh.bundle.patch", pkg.dsh === undefined || pkg.dsh.bundle === undefined ? undefined : pkg.dsh.bundle.patch]]) {
+  if (typeof rel !== "string" || !rel) problems.push(`package.json: ${label} is missing`);
+  else if (!fs.existsSync(path.join(ROOT, rel))) problems.push(`package.json: ${label} points at ${rel}, which does not exist`);
+}
+if (pkg.peerDependencies === undefined || pkg.peerDependencies["@deepseek-ai/dsh-tools"] === undefined) problems.push("package.json: peerDependencies does not declare @deepseek-ai/dsh-tools");
+if (pkg.scripts === undefined || pkg.scripts.check === undefined || pkg.scripts.selfcheck === undefined) problems.push("package.json: the check/selfcheck scripts are missing");
+
 // --- declarations: dead or duplicated ------------------------------------------------------
 const declared = new Map();
 for (const m of src.matchAll(/^(?:async )?function ([A-Za-z_$][\w$]*)\s*\(/gm)) declared.set(m[1], "function");

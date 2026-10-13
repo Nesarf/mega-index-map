@@ -367,7 +367,10 @@ function smoke() {
     check("PORTABILITY", "smoke", "injectPrompt:true registers the notice hook", typeof notice === "function", String(notice));
     if (typeof notice === "function") {
       const runNotice = (session, priorUserEvents = 0) => {
-        const messages = [{ source: { kind: "user" }, content: [{ type: "text", text: "hello" }] }];
+        // A durable message, the way the host hands one over: role, id and a producer-owned source. The
+        // notice injection is only allowed to rewrite a message of this shape, so the fixture has to be
+        // one - a bare { source, content } literal here would test a shape no host produces.
+        const messages = [{ role: "user", id: `notice-${RUN}-m1`, source: { kind: "user" }, content: [{ type: "text", text: "hello" }] }];
         const payload = { agent: { session: { id: session.id, header: session.header || {}, events: Array.from({ length: priorUserEvents }, () => ({ type: "user/message" })) } }, signal: { aborted: false } };
         return notice(payload, async () => ({ kind: "enter", messages }));
       };
@@ -394,9 +397,11 @@ function smoke() {
       { type: "session", seq: 0, time: now - 60000, data: { id: "11111111-2222-3333-4444-555555555555", version: 3, createdAt: new Date(now - 60000).toISOString(), cwd: "E:\selfcheck-ws", agentPreset: "selfcheck" } },
       { type: "session/title", seq: 1, time: now - 50000, data: { title: "selfcheck fixture session", messageSeqs: [2], source: "llm" } },
       { type: "user/message", seq: 2, time: now - 40000, data: { role: "user", id: "m1", source: { kind: "user" }, content: [{ type: "text", text: "fixture question about zstd frames" }] } },
-      { type: "assistant/message", seq: 3, time: now - 30000, data: { turn: 1, step: 0, message: { role: "assistant", id: "m2", content: [{ type: "text", text: "fixture answer mentioning 162 frames" }] }, usage: {} } },
+      { type: "assistant/message", seq: 3, time: now - 30000, data: { turn: 1, step: 0, message: { role: "assistant", id: "m2", source: { kind: "model" }, content: [{ type: "text", text: "fixture answer mentioning 162 frames" }] }, usage: {} } },
       { type: "tool/call", seq: 4, time: now - 20000, data: { turn: 1, step: 1, callId: "c1", name: "fixture_tool", arguments: { a: 1 } } },
-      { type: "tool/result", seq: 5, time: now - 10000, data: { turn: 1, step: 1, message: { role: "tool", content: [{ type: "text", text: "fixture tool output" }] } } },
+      { type: "tool/result", seq: 5, time: now - 10000, data: { turn: 1, step: 1, message: { role: "tool", id: "m3", source: { kind: "tool", callId: "c1" }, content: [{ type: "text", text: "fixture tool output" }] } } },
+      { type: "system/message", seq: 6, time: now - 9000, data: { turn: 1, step: 1, message: { role: "system", id: "m4", source: { kind: "runtime-context", form: "snapshot" }, content: [{ type: "text", text: "fixture runtime context snapshot" }] } } },
+      { type: "agent/inbox/spliced", seq: 7, time: now - 8000, data: { target: "next-turn", start: 0, inserted: [{ role: "user", id: "m5", source: { kind: "user" }, content: [{ type: "text", text: "fixture inbox delivery" }] }] } },
     ];
     const sesFrames = sesRecords.map((r) => zstdCompressSync(Buffer.from(JSON.stringify(r), "utf8")));
     const sesTorn = sesFrames[sesFrames.length - 1].subarray(0, Math.max(1, Math.floor(sesFrames[sesFrames.length - 1].length / 2)));
@@ -415,6 +420,27 @@ function smoke() {
     const sesContent = await call("library_sessions", { op: "read", target: SES_DIR, content: true, maxChars: 2000 });
     const joined = (sesContent.messages || []).map((m) => m.text).join(" | ");
     check("PORTABILITY", "smoke", "content:true returns the message text", /fixture question about zstd frames/.test(joined) && /fixture answer mentioning 162 frames/.test(joined), joined.slice(0, 120));
+    check("PORTABILITY", "smoke", "the v4 slots are read too (system/message, agent/inbox/spliced)", /fixture runtime context snapshot/.test(joined) && /fixture inbox delivery/.test(joined), joined.slice(0, 160));
+
+    // The generation this host writes today: session.v4.jsonl.zstd under a session directory, with the
+    // slots v4 added. The list has to resolve it, and content:true has to return text from the slots a
+    // v3-only reader dropped - a runtime-context snapshot and an inbox delivery.
+    const V4_DIR = path.join(SES_WS, "session-99999999-8888-7777-6666-555555555555");
+    fs.mkdirSync(V4_DIR, { recursive: true });
+    const v4Records = [
+      { type: "session", version: 4, id: "99999999-8888-7777-6666-555555555555", createdAt: now - 7000, cwd: "E:\selfcheck-ws", isSeeded: false, delegationDepth: 0, agentPreset: "selfcheck" },
+      { type: "user/message", seq: 0, time: now - 6000, data: { content: [{ type: "text", text: "fixture v4 question" }], source: { kind: "user" }, role: "user", id: "v4m1" }, surfaceOp: "append" },
+      { type: "agent/inbox/spliced", seq: 1, time: now - 5000, data: { target: "next-turn", start: 0, inserted: [{ content: [{ type: "text", text: "fixture v4 inbox delivery" }], source: { kind: "user" }, role: "user", id: "v4m2" }] } },
+      { type: "system/message", seq: 2, time: now - 4000, data: { turn: 1, step: 1, message: { role: "system", id: "v4m3", source: { kind: "runtime-context", form: "snapshot" }, content: [{ type: "text", text: "fixture v4 runtime context" }] } }, surfaceOp: "append" },
+    ];
+    const v4File = path.join(V4_DIR, "session.v4.jsonl.zstd");
+    fs.writeFileSync(v4File, Buffer.concat(v4Records.map((r) => zstdCompressSync(Buffer.from(JSON.stringify(r), "utf8")))));
+    const v4List = await call("library_sessions", { op: "list", dir: path.join(HOME, "sessions"), titles: true });
+    const v4Entry = (v4List.entries || []).find((e) => e.path === v4File);
+    check("PORTABILITY", "smoke", "the v4 generation is listed with its format version", !!v4Entry && v4Entry.formatVersion === 4 && v4Entry.cwd === "E:\selfcheck-ws", JSON.stringify(v4Entry || {}).slice(0, 140));
+    const v4Content = await call("library_sessions", { op: "read", target: V4_DIR, content: true, maxChars: 2000 });
+    const v4Joined = (v4Content.messages || []).map((m) => m.text).join(" | ");
+    check("PORTABILITY", "smoke", "a v4 session's slots all reach the caller", /fixture v4 question/.test(v4Joined) && /fixture v4 inbox delivery/.test(v4Joined) && /fixture v4 runtime context/.test(v4Joined), v4Joined.slice(0, 200));
     const sesTail = await call("library_sessions", { op: "tail", target: SES_DIR, frames: 2 });
     check("PORTABILITY", "smoke", "tail decodes only the trailing frames", sesTail.ok === true && sesTail.records <= 2 && sesTail.frames >= sesRecords.length, JSON.stringify({ records: sesTail.records, frames: sesTail.frames }));
     const sesSearch = await call("library_sessions", { op: "search", dir: path.join(HOME, "sessions"), query: "162 frames" });
@@ -497,7 +523,7 @@ function smoke() {
     // file's path carries an ASCII trigger word, so the row it produces has to come back encrypted.
     const triggerFile = path.join(FIXTURES, `trojan-sample-${RUN}.bin`);
     fs.writeFileSync(triggerFile, Buffer.from("sensitive-path fixture", "utf8"));
-    const mineRecord = { type: "user/message", seq: 9, time: Date.now(), data: { role: "user", content: [{ type: "text", text: mineText }] } };
+    const mineRecord = { type: "user/message", seq: 9, time: Date.now(), data: { role: "user", id: "mine-fixture-1", source: { kind: "user" }, content: [{ type: "text", text: mineText }] } };
     const mineDir = path.join(HOME, "sessions", "--E-mine--", "session-99999999-8888-7777-6666-555555555555");
     fs.mkdirSync(mineDir, { recursive: true });
     fs.writeFileSync(path.join(mineDir, "session.jsonl.zstd"), zstdCompressSync(Buffer.from(JSON.stringify(mineRecord), "utf8")));
