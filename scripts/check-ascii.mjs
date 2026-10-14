@@ -34,12 +34,29 @@ function allowedRange(file) {
   return end < 0 ? null : { start: start + 1, end: end + 1 };
 }
 
+// Binary assets are not text: a checker that reads a PNG as UTF-8 reports a hundred thousand "unexpected
+// non-ASCII characters" and points at the image rather than at itself. Skipped by extension, and also when the
+// first 8 KB contain a NUL byte, so a text file with a misleading extension is still scanned.
+const BINARY_EXT = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".bmp", ".pdf", ".zip", ".zst", ".bin", ".wasm"]);
+function looksBinary(file) {
+  if (BINARY_EXT.has(path.extname(file).toLowerCase())) return true;
+  try {
+    const fd = fs.openSync(file, "r");
+    const buf = Buffer.alloc(8192);
+    const n = fs.readSync(fd, buf, 0, 8192, 0);
+    fs.closeSync(fd);
+    return buf.subarray(0, n).includes(0);
+  } catch {
+    return false;
+  }
+}
+
 function walk(dir, out = []) {
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     if (SKIP_DIRS.has(entry.name) || SKIP_FILES.has(entry.name)) continue;
     const p = path.join(dir, entry.name);
     if (entry.isDirectory()) walk(p, out);
-    else out.push(p);
+    else if (!looksBinary(p)) out.push(p);
   }
   return out;
 }

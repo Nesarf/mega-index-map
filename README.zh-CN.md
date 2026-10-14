@@ -1,5 +1,12 @@
 # mega-index-map
 
+<p align="center">
+  <img src="docs/mim.png" alt="Mim：蓝发猫耳的机工少女，佩工具腰带、举着扳手、脚下摊着蓝图，坐在木箱上" width="260">
+</p>
+
+**Mim（麦姆）** 是这个项目的吉祥物。角色形象由本仓库作者生成、归作者所有，**不包含在覆盖代码的 MIT 授权内**；
+方形的图标裁切在 `docs/mim-icon.png`。
+
 > 英文原文：[README.md](README.md)
 
 面向 DeepSeek Harness 的跨工作区资料库（Library）。Agent 把遇到的对象——文件、工具、环境、知识、
