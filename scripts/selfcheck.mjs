@@ -442,6 +442,46 @@ function smoke() {
     const v4Joined = (v4Content.messages || []).map((m) => m.text).join(" | ");
     check("PORTABILITY", "smoke", "a v4 session's slots all reach the caller", /fixture v4 question/.test(v4Joined) && /fixture v4 inbox delivery/.test(v4Joined) && /fixture v4 runtime context/.test(v4Joined), v4Joined.slice(0, 200));
     const sesTail = await call("library_sessions", { op: "tail", target: SES_DIR, frames: 2 });
+    // ---- op=semantics: the rules a session log must satisfy ----
+    // The rules are held directly, through the pure function the op calls, because the host's persistence
+    // loader refuses to list a synthetic store: listArtifacts skips an artifact whose identity it cannot
+    // verify, so a check that could only run through the loader would only ever run on this machine. The
+    // loader wiring itself is exercised against the real store (306/306 sessions, 68838 surface nodes).
+    const { semanticsFindings } = await import(pathToFileURL(PLUGIN).href);
+    const deriveStand = (event) => (event && event.data && event.data.message !== undefined ? event.data.message : (event && event.data) || null);
+    const msg = (role, id, source, content) => ({ role, id, source, content });
+    const text = (t2) => [{ type: "text", text: t2 }];
+    const semEvents = [
+      { type: "user/message", data: msg("user", "ok-1", { kind: "user" }, text("a message that holds together")) },
+      { type: "assistant/message", data: { message: msg("assistant", "ok-2", { kind: "model" }, text("an answer")) } },
+      { type: "user/message", data: msg("user", "dup-1", { kind: "user" }, text("first delivery")) },
+      { type: "user/message", data: msg("user", "dup-1", { kind: "user" }, text("the same id again")) },
+      { type: "user/message", data: msg("system", "bad-role", { kind: "user" }, text("a system message in a user slot")) },
+      { type: "user/message", data: msg("user", "bad-source", { kind: "plugin" }, text("a retired producer kind")) },
+      { type: "user/message", data: msg("user", "", { kind: "user" }, text("no id at all")) },
+      { type: "user/message", data: msg("user", "bad-content", { kind: "user" }, "not an array") },
+      { type: "note", data: msg(undefined, "bad-role-field", { kind: "user" }, text("an event whose type fixes no role")) },
+      { type: "user/message", data: { role: "user", id: "throws", source: { kind: "user" }, content: text("derivation fails") } },
+    ];
+    const semNodes = semEvents.map((_, i) => i);
+    const deriveThrowing = (event) => {
+      if (event && event.data && event.data.id === "throws") throw new Error("synthetic derivation failure");
+      return deriveStand(event);
+    };
+    const verdict = semanticsFindings({ events: semEvents, nodes: semNodes, projectedMessages: null, deriveEventMessage: deriveThrowing, session: "synthetic-session" });
+    const vf = verdict.findings;
+    const vs = verdict.samples;
+    check("PORTABILITY", "smoke", "the semantics rules count every surface node and derive every message", verdict.nodes === semEvents.length && verdict.derived === semEvents.length - 1, JSON.stringify({ nodes: verdict.nodes, derived: verdict.derived, why: "one fixture's derivation throws on purpose, so it is a node but not a derived message" }));
+    check("PORTABILITY", "smoke", "the semantics rules report a role that disagrees with its event type", vf.mismatch === 1 && vs.mismatch[0].seq === 4 && vs.mismatch[0].want === "user", JSON.stringify(vs.mismatch));
+    check("PORTABILITY", "smoke", "the semantics rules report a retired producer source kind", vf.source === 1 && vs.source[0].kind === "plugin", JSON.stringify(vs.source));
+    check("PORTABILITY", "smoke", "the semantics rules report a message with no id", vf.id === 1 && vs.id[0].seq === 6, JSON.stringify(vs.id));
+    check("PORTABILITY", "smoke", "the semantics rules report content that is not an array", vf.content === 1 && vs.content[0].seq === 7, JSON.stringify(vs.content));
+    check("PORTABILITY", "smoke", "the semantics rules report a message id delivered twice", vf.repeat === 1 && vs.repeat[0].firstSeq === 2 && vs.repeat[0].seq === 3, JSON.stringify(vs.repeat));
+    check("PORTABILITY", "smoke", "the semantics rules report a message with no role where no role is fixed", vf.role === 1 && vs.role[0].seq === 8, JSON.stringify(vs.role));
+    check("PORTABILITY", "smoke", "the semantics rules survive a derivation that throws", vf.openFailed === 1 && vs.openFailed[0].seq === 9, JSON.stringify(vs.openFailed));
+    check("PORTABILITY", "smoke", "the semantics rules stay silent about messages that hold together", !vs.mismatch.some((s) => s.seq === 0 || s.seq === 1) && !vs.id.some((s) => s.seq === 0 || s.seq === 1), JSON.stringify({ mismatch: vs.mismatch.map((s) => s.seq), id: vs.id.map((s) => s.seq) }));
+    const semEmpty = await call("library_sessions", { op: "semantics", dir: path.join(HOME, "semantics-empty") });
+    check("PORTABILITY", "smoke", "op=semantics does not call an unexamined store clean", semEmpty.ok === true && semEmpty.clean === false && semEmpty.sessionsDone === 0, JSON.stringify({ clean: semEmpty.clean, sessions: semEmpty.sessionsDone }));
     check("PORTABILITY", "smoke", "tail decodes only the trailing frames", sesTail.ok === true && sesTail.records <= 2 && sesTail.frames >= sesRecords.length, JSON.stringify({ records: sesTail.records, frames: sesTail.frames }));
     const sesSearch = await call("library_sessions", { op: "search", dir: path.join(HOME, "sessions"), query: "162 frames" });
     check("PORTABILITY", "smoke", "search finds a phrase by scanning frames", sesSearch.ok === true && (sesSearch.hits || []).some((h) => /162 frames/.test(h.snippet)), JSON.stringify(sesSearch.hits || []).slice(0, 120));

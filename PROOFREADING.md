@@ -1020,3 +1020,47 @@ Measured, before and after on the real library:
 
 The remaining four are the locked files above: `op=verify` reports them as unreadable and keeps them, because
 a locked file is not a missing one, and they stay in the denominator rather than being quietly excused.
+
+## Round 29 - a second ruler for what a session log is allowed to contain
+
+The host refuses a session whose messages do not hold together, and the refusal is not local: the session
+stops opening, or the provider rejects the whole request. Three shapes produce it - a missing or retired
+producer source kind, a message with no role or no id, and an event type that disagrees with the role its
+message carries - and a fourth, found on this machine, does not produce an error at all: a hook that returns
+the transcript it observed appends the same messages again, so the log grows copies of context the session
+already had. The host accepts those; nothing complains; the session is merely wrong. Hence `library_sessions
+op=semantics`: read-only, and deliberately reading through the host's own persistence loader rather than this
+plugin's decoder, because a checker that trusts its own reader is marking its own homework.
+
+What it reports, per class, with samples and exact counts: `source`, `role`, `mismatch`, `id`, `content`,
+`repeat`, `openFailed`. On this machine's store it read 306 of 306 sessions, 68,838 surface nodes and 68,832
+derived messages in 21.7 s: the four shapes the host enforces are at zero, and 27 repeated message ids are
+not. Those sit in one session, where six injected context messages - the voice note, the workspace
+instructions reminder, the disk-guard path discipline, a runtime-context snapshot, the skills list and the
+memory page - each appear twice, byte-identical, at sequence 8-13 and again at 81-86. That is the fingerprint
+of the incident the shared rules describe, still in the log, invisible to every existing check.
+
+Three things were learned by getting them wrong first, and each is now held by something:
+
+- **A store nobody examined is not clean.** An earlier version reported `clean: true` when the path it was
+  pointed at happened to hold no sessions - a pass that had not looked at anything, which is the same class
+  of lie as a fingerprint denominator that counts directories. `clean` now requires at least one session
+  examined, and a check asserts that an empty directory comes back not-clean with that said in the note.
+- **The rules cannot be tested only through the loader.** The host's persistence loader silently skips an
+  artifact whose identity it cannot verify (`listArtifacts` continues on a corruption error), so a synthetic
+  store lists as zero sessions and no assertion through it can run anywhere but a real machine. The rules
+  therefore live in one exported pure function, `semanticsFindings`, and the self-check feeds it synthetic
+  events: one case per class, plus one that must stay silent, plus a derivation that throws. Both the pairing
+  rule and the repeat rule were fault-injected - each removal fails exactly its own check.
+- **Machine layout never goes into shipped source.** The first version told the caller to run a script by
+  absolute path and to configure `sessionLoaderDir` by hand; the portability invariant refused the literal
+  drive path, correctly. The directory is now derived from the peer this plugin already resolves
+  (`@deepseek-ai/dsh-tools` sits in the same `@deepseek-ai` directory as `dsh-session`), so nothing absolute
+  is written down and a host that moves its SDK still answers; config remains as an override.
+
+And one self-inflicted wound worth recording, because the guard that would have caught it is what failed:
+a rewrite script sliced the self-check from `a` to `b` without checking that `b` came after `a`, so it kept
+the region between them twice and the file ended up declaring `sesTail` twice. The repair scripts now refuse
+that case outright, and both block markers are asserted before a splice instead of after.
+
+Self-check 260 -> 280 checks, four invariants green.
