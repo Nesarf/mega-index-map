@@ -10,6 +10,8 @@ them - it is not part of the MIT grant that covers the code. `docs/mim.webp` is 
 
 Signed releases carry a PKCS#7 signature, a hash file and the public certificate; [docs/verification.md](docs/verification.md)
 says how to check one, and what the signature does and does not prove.
+[docs/releasing.md](docs/releasing.md) is the maintainer's side of it: how a release is cut, and what CI does
+with the push.
 
 > Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
 

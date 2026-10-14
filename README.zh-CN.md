@@ -9,6 +9,7 @@
 
 已签名的发布物带一份 PKCS#7 签名、一个哈希文件与公钥证书；怎么验证、以及签名证明了什么、没证明什么，都写在
 [docs/verification.md](docs/verification.md)。
+维护者那一侧写在 [docs/releasing.md](docs/releasing.md)：发布怎么切、推送之后 CI 会做什么。
 
 > 英文原文：[README.md](README.md)
 
