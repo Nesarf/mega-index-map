@@ -8,6 +8,9 @@
 them - it is not part of the MIT grant that covers the code. `docs/mim.webp` is the full-body art,
 `docs/mim-icon.webp` the square icon crop, and the chibi above is the Q-version used for announcements.
 
+Signed releases carry a PKCS#7 signature, a hash file and the public certificate; [docs/verification.md](docs/verification.md)
+says how to check one, and what the signature does and does not prove.
+
 > Chinese documentation: [README.zh-CN.md](README.zh-CN.md)
 
 A cross-workspace Library for DeepSeek Harness. Agents record the objects they meet - files, tools,

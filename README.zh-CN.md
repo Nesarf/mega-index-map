@@ -7,6 +7,9 @@
 **Mim（麦姆）** 是这个项目的吉祥物。角色形象由本仓库作者生成、归作者所有，**不包含在覆盖代码的 MIT 授权内**；
 全身立绘在 `docs/mim.webp`，方形图标裁切在 `docs/mim-icon.webp`；上面这张 Q 版是对外宣传优先用的那一版。
 
+已签名的发布物带一份 PKCS#7 签名、一个哈希文件与公钥证书；怎么验证、以及签名证明了什么、没证明什么，都写在
+[docs/verification.md](docs/verification.md)。
+
 > 英文原文：[README.md](README.md)
 
 面向 DeepSeek Harness 的跨工作区资料库（Library）。Agent 把遇到的对象——文件、工具、环境、知识、
