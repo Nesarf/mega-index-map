@@ -1,11 +1,11 @@
 # mega-index-map
 
 <p align="center">
-  <img src="docs/mim.png" alt="Mim：蓝发猫耳的机工少女，佩工具腰带、举着扳手、脚下摊着蓝图，坐在木箱上" width="260">
+  <img src="docs/mim-chibi.webp" alt="Mim 的 Q 版：蓝发猫耳的机工少女，笑着举起齿轮和扳手" width="220">
 </p>
 
 **Mim（麦姆）** 是这个项目的吉祥物。角色形象由本仓库作者生成、归作者所有，**不包含在覆盖代码的 MIT 授权内**；
-方形的图标裁切在 `docs/mim-icon.png`。
+全身立绘在 `docs/mim.webp`，方形图标裁切在 `docs/mim-icon.webp`；上面这张 Q 版是对外宣传优先用的那一版。
 
 > 英文原文：[README.md](README.md)
 
