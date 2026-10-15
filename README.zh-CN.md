@@ -1,10 +1,11 @@
 # mega-index-map
 
 <p align="center">
-  <img src="docs/mim-chibi.webp" alt="Mim 的 Q 版：蓝发猫耳的机工少女，笑着举起齿轮和扳手" width="220">
+  <img src="docs/social-preview.webp" alt="一张 2:1 海报，融合构成主义、波普与达达：Mim 以三种尺度站在放射红楝、裂开的白圆、网点场、平涂色块与撕纸之间" width="640">
 </p>
 
 **Mim（麦姆）** 是这个项目的吉祥物。角色形象由本仓库作者生成、归作者所有，**不包含在覆盖代码的 MIT 授权内**；
+上面那张海报由本机用 Qwen-Image（阿里云百炼）从项目自己的角色立绘生成，同一套立绘另见 `docs/mim.png` 与 `docs/mim-chibi.webp`；
 全身立绘在 `docs/mim.webp`，方形图标裁切在 `docs/mim-icon.webp`；上面这张 Q 版是对外宣传优先用的那一版。
 
 已签名的发布物带一份 PKCS#7 签名、一个哈希文件与公钥证书；怎么验证、以及签名证明了什么、没证明什么，都写在
