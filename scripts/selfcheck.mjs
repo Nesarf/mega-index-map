@@ -776,6 +776,28 @@ function smoke() {
     check("PORTABILITY", "smoke", "prune what=dead refuses without confirm and reports what it found", deadDry.ok === false && deadDry.dead >= 1 && /confirm/.test(String(deadDry.note)), JSON.stringify({ ok: deadDry.ok, dead: deadDry.dead, unreadable: deadDry.unreadable }));
     const stillRecorded = (await call("library_query", { query: "verify-fixture", limit: 20 })).results.some((o) => o.name === `verify-fixture-${RUN}`);
     check("PORTABILITY", "smoke", "a refused dead-prune deletes nothing", stillRecorded === true, "the record vanished without a confirmation");
+
+    // A bounded pass must be resumable. Measured before the cursor existed: two consecutive default calls
+    // examined the same 500 records and "remaining" never fell, while the note said "run it again to continue".
+    // These four checks are that report's acceptance test, kept here so the property cannot quietly go away.
+    for (let g = 0; g < 3; g += 1) {
+      await call("library_record", { type: "file", name: `prune-cursor-fixture-${RUN}-${g}`, source: vDir, path: path.join(vDir, `prune-cursor-fixture-${RUN}-${g}`), description: "records a path that was never created; the prune cursor checks need more than one candidate" });
+    }
+    const firstSlice = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 1 });
+    const secondSlice = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 1, after: firstSlice.nextAfter });
+    check("PORTABILITY", "smoke", "a bounded dead-prune hands back a cursor", firstSlice.checked === 1 && typeof firstSlice.nextAfter === "string", JSON.stringify({ checked: firstSlice.checked, remaining: firstSlice.remaining, nextAfter: firstSlice.nextAfter ? "yes" : null }));
+    check("PORTABILITY", "smoke", "the next call resumes after that cursor instead of re-walking the head", secondSlice.checked === 1 && secondSlice.nextAfter !== firstSlice.nextAfter, JSON.stringify({ first: firstSlice.nextAfter, second: secondSlice.nextAfter }));
+    check("PORTABILITY", "smoke", "the note names a cursor only when a next call would really continue", firstSlice.remaining === 0 || /pass after:/.test(String(firstSlice.note)), JSON.stringify({ remaining: firstSlice.remaining, tail: String(firstSlice.note).slice(-70) }));
+    let walkCursor = firstSlice.nextAfter;
+    let slices = 0;
+    let walked = 0;
+    while (walkCursor && slices < 40) {
+      const slice = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 1, after: walkCursor });
+      walked += slice.checked;
+      walkCursor = slice.nextAfter;
+      slices += 1;
+    }
+    check("PORTABILITY", "smoke", "following the cursor terminates the pass with nothing left", slices < 40 && !walkCursor, JSON.stringify({ slices, walked, ended: !walkCursor }));
     const deadRun = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 500, confirm: true, reason: "selfcheck dead prune" });
     const nowGone = (await call("library_query", { query: "verify-fixture", limit: 20 })).results.some((o) => o.name === `verify-fixture-${RUN}`);
     const endpointAlive = (await call("library_query", { query: "verify-endpoint-fixture", limit: 20 })).results.some((o) => o.name === "verify-endpoint-fixture");
