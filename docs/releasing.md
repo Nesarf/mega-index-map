@@ -40,13 +40,18 @@ nobody can answer from the outside.
 |---|---|---|
 | `invariant` | every push and tag | the ASCII invariant and the consistency proofread; cheap, no dependencies |
 | `release` | tags matching `v*` | creates the GitHub Release, with notes built from the commits since the previous tag |
-| `npm` | pushes to **main**, and only when the repository variable `NPM_PUBLISH` is `true` | publishes to the npm registry, skipping when that version already exists there |
+| `npm` | pushes to **main**, and only when the repository variable `NPM_PUBLISH` is `true` - which it never is here; see below | publishes to the npm registry, skipping when that version already exists there |
 
 Three consequences worth knowing:
 
 - **A tag push never runs the npm job.** Its condition is `github.ref == 'refs/heads/main'` plus the variable,
   so tagging is not a publish button. Publishing to the registry is opt-in twice over.
-- **The npm job needs credentials that are not in this repository**: either a Trusted Publisher configured for
+- **The npm route is closed, not merely switched off.** npm account registration is not available to this
+  maintainer, so `NPM_PUBLISH` will never be set and no Trusted Publisher can be configured for the account.
+  The job stays in the workflow, gated, so that it cannot run by accident - but nothing here should be planned
+  around npm. Distribution is the GitHub install line the release notes carry:
+  `dsh plugin --profile web add github:Nesarf/mega-index-map`.
+- **The npm job would need credentials that are not in this repository**: either a Trusted Publisher configured for
   this repository on npmjs.com (the workflow asks for `id-token: write` for that) or an `NPM_TOKEN` secret. A
   skipped `npm` job means the variable is unset, not that something failed.
 - **`release` writes the notes, and the signing step only adds to them.** The workflow's notes carry the

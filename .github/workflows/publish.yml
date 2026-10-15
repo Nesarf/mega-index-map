@@ -30,6 +30,11 @@ jobs:
   # npm publishing is opt-in: set the repository variable NPM_PUBLISH=true (and configure a
   # Trusted Publisher for this repository on npmjs.com, or add an NPM_TOKEN secret) to enable
   # it. Without that the job is skipped instead of failing on every push to main.
+#
+# It is not enabled for this repository and cannot be: npm account registration is not available
+# to the maintainer, so the variable will never be set and no Trusted Publisher can be configured.
+# The gate stays so the job cannot run by accident; distribution is the GitHub install line that
+# the release notes carry.
   npm:
     needs: invariant
     if: ${{ github.ref == 'refs/heads/main' && vars.NPM_PUBLISH == 'true' }}
