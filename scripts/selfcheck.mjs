@@ -216,7 +216,7 @@ function smoke() {
     check("ENCODING", "smoke", "accents survive", got && got.description === ACCENT, got && got.description);
     check("ENCODING", "smoke", "astral-plane emoji survives", got && got.summary === EMOJI, got && got.summary);
     const comb = await call("library_record", { type: "knowledge", name: COMBINING, source: "selftest:/selfcheck" });
-    const q2 = await call("library_query", { query: "selfcheck" });
+    const q2 = await call("library_query", { query: COMBINING, limit: 5 });
     const got2 = (q2.results || []).find((o) => o.id === comb.id);
     check("ENCODING", "smoke", "combining mark is not normalised", got2 && got2.name === COMBINING, got2 && JSON.stringify(got2.name));
 
@@ -798,11 +798,34 @@ function smoke() {
       slices += 1;
     }
     check("PORTABILITY", "smoke", "following the cursor terminates the pass with nothing left", slices < 40 && !walkCursor, JSON.stringify({ slices, walked, ended: !walkCursor }));
+
+    // A recorded value that merely lives in the path field is not a missing file. An environment record can hold
+    // a PATH list, a bare user name, or an unexpanded %VARIABLE%; stat() fails on all three for the same reason
+    // it fails on a deleted file. Before the cursor existed this pass never reached them, so nothing was lost;
+    // once it could, confirm:true would have deleted three true facts. Hence one clause per shape, and a count.
+    const notPathProbes = [
+      { name: `prune-notpath-list-${RUN}`, value: "C:\\Windows;C:\\Windows\\System32" },
+      { name: `prune-notpath-bare-${RUN}`, value: "Administrator" },
+      { name: `prune-notpath-variable-${RUN}`, value: "%USERPROFILE%\\.vscode" },
+    ];
+    for (const probe of notPathProbes) {
+      await call("library_record", { type: "env", name: probe.name, source: vDir, path: probe.value, description: "holds a value, not a path; the dead prune must not treat it as a missing file" });
+    }
+    const pathRun = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 500 });
+    const pathDeadNames = (pathRun.samples.dead || []).map((d) => d.name);
+    check("PORTABILITY", "smoke", "a recorded value that is not a path is not reported as a dead path", pathRun.notPaths >= 3 && !notPathProbes.some((p) => pathDeadNames.includes(p.name)), JSON.stringify({ notPaths: pathRun.notPaths, deadNames: pathDeadNames.slice(0, 4) }));
+    check("PORTABILITY", "smoke", "and a path that really is gone is still reported as dead", pathDeadNames.includes(`verify-fixture-${RUN}`), JSON.stringify({ deadNames: pathDeadNames.slice(0, 4) }));
     const deadRun = await call("library_index", { op: "prune", what: "dead", source: vDir, maxFiles: 500, confirm: true, reason: "selfcheck dead prune" });
     const nowGone = (await call("library_query", { query: "verify-fixture", limit: 20 })).results.some((o) => o.name === `verify-fixture-${RUN}`);
     const endpointAlive = (await call("library_query", { query: "verify-endpoint-fixture", limit: 20 })).results.some((o) => o.name === "verify-endpoint-fixture");
     check("PORTABILITY", "smoke", "a confirmed dead-prune drops the record whose file is gone", deadRun.ok === true && deadRun.dropped >= 1 && nowGone === false, JSON.stringify({ dropped: deadRun.dropped, goneAfterwards: !nowGone }));
     check("PORTABILITY", "smoke", "an endpoint is not a dead path and survives the prune", endpointAlive === true, JSON.stringify({ endpointAlive, dead: deadRun.dead }));
+    const valueSurvivors = [];
+    for (const probe of notPathProbes) {
+      const found = (await call("library_query", { query: probe.name, limit: 5 })).results.some((o) => o.name === probe.name);
+      if (found) valueSurvivors.push(probe.name);
+    }
+    check("PORTABILITY", "smoke", "a confirmed dead-prune does not delete records whose path field holds a value", valueSurvivors.length === notPathProbes.length, JSON.stringify({ survived: valueSurvivors.length, of: notPathProbes.length }));
     // ---- op=status: the whole library in one read, with disk-side findings quoted from the log ----
     const st = await call("library_index", { op: "status" });
     const idxFile = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8"));
