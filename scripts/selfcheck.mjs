@@ -108,6 +108,13 @@ let hooks = null;
 // satisfy that tool's declared output schema. Declared out here because the assertion lives outside the
 // try block that loads the plugin.
 const outputViolations = [];
+// The plugin registers a prompt section when the systemPrompt service is there. Keeping the registrations
+// lets a stage assert the section itself - name and placement - instead of trusting that apply() ran.
+const sections = [];
+const systemPromptService = {
+  section: (entry) => { sections.push(entry); },
+  getSectionOrder: (name) => (name === "TOOL_BASH" ? 1000 : 0),
+};
 try {
   const mod = await import(pathToFileURL(PLUGIN).href);
   const map = new Map();
@@ -140,13 +147,14 @@ try {
       },
       on: (name, handler) => hooks.set(name, handler),
       logger,
+      systemPrompt: systemPromptService,
     },
   }, { bootstrap: "off" });
   tools = map;
   // The notice is opt-in, so the same module is applied a second time with it switched on: that is
   // where the hook has to appear.
   const noticeHooks = new Map();
-  await mod.apply({ tools: { register: () => {} }, on: (name, handler) => noticeHooks.set(name, handler), logger }, { injectPrompt: true, bootstrap: "off" });
+  await mod.apply({ tools: { register: () => {} }, on: (name, handler) => noticeHooks.set(name, handler), logger, systemPrompt: systemPromptService }, { injectPrompt: true, bootstrap: "off" });
   hooks.set("__notice__", noticeHooks.get("agent/pre-step") || null);
 } catch (e) {
   unavailable = `plugin not loadable here (${String((e && e.message) || e).split("\n")[0]}) - stage needs @deepseek-ai/dsh-tools`;
@@ -205,6 +213,8 @@ function smoke() {
   const need = ["library_record", "library_index", "library_query", "library_detect", "library_sniff", "library_format", "library_decrypt", "library_export", "library_encoding", "library_adb"];
   const missing = need.filter((n) => !tools.has(n));
   check("PORTABILITY", "smoke", `${need.length} tools registered`, missing.length === 0, missing.join(", "));
+  const libSection = sections.find((s) => s && s.name === "tool:library-first");
+  check("PORTABILITY", "smoke", "the Library-first prompt section is registered ahead of the tool rules", !!libSection && libSection.order === 990 && typeof libSection.text === "string" && libSection.text.length > 100, JSON.stringify({ registered: sections.length, order: libSection && libSection.order }));
 
   // Run the async battery, then judge in the caller (this function is sync-friendly: it returns a promise).
   return (async () => {
