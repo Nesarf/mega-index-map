@@ -215,6 +215,9 @@ function smoke() {
   check("PORTABILITY", "smoke", `${need.length} tools registered`, missing.length === 0, missing.join(", "));
   const libSection = sections.find((s) => s && s.name === "tool:library-first");
   check("PORTABILITY", "smoke", "the Library-first prompt section is registered ahead of the tool rules", !!libSection && libSection.order === 990 && typeof libSection.text === "string" && libSection.text.length > 100, JSON.stringify({ registered: sections.length, order: libSection && libSection.order }));
+  let receipt = null;
+  try { receipt = JSON.parse(fs.readFileSync(path.join(HOME, "library", "prompt-section.json"), "utf8")); } catch { receipt = null; }
+  check("PORTABILITY", "smoke", "the registration leaves a receipt that says whether the section went in", !!receipt && receipt.registered === true && receipt.order === 990, JSON.stringify(receipt));
 
   // Run the async battery, then judge in the caller (this function is sync-friendly: it returns a promise).
   return (async () => {
