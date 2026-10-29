@@ -74,6 +74,10 @@ message - replace its wording wholesale with `$DSH_HOME/mega-index-prompt.md`.
   Timestamps are UTC ISO-8601, and every response also carries `timezone` - the host's UTC offset,
   its zone name and the current local time - so a report can be read on a local clock without guessing.
   Local reads only: nothing is uploaded, no file is modified
+- `library_project` - dependency map of a source tree: `op=map` reports files, lines, edges, tests and the
+  most depended-on files; `op=affects file=<path>` names every file and test that transitively imports the
+  given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go), and string-path loaders such as
+  `loadUnit` count as dependencies too.
 
 ### First run: mine the history before claiming to be installed
 

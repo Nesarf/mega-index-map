@@ -27,6 +27,10 @@ prepends this same advice to each session (wording replaceable at `$DSH_HOME/meg
 - `library_encoding` - report the host encoding + how to switch to UTF-8
 - `library_adb` - developer-side Android device operations over ADB
 - `library_sessions` - read DSH's own sessions (and exported session-log ZIPs): `list` enumerates, `read` gives a bounded structural summary (`content: true` for the text), `tail` decodes only the last frames, `search` scans frames for a phrase, `record` writes a session into the Library as a log
+- `library_project` - dependency map of a source tree: `op=map` reports files, lines, edges, tests and the
+  most depended-on files; `op=affects file=<path>` names every file and test that transitively imports the
+  given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go), and string-path loaders such as
+  `loadUnit` count as dependencies too.
 
 ## When to record
 
