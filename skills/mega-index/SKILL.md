@@ -32,6 +32,11 @@ prepends this same advice to each session (wording replaceable at `$DSH_HOME/meg
   given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go), and string-path loaders such as
   `loadUnit` count as dependencies too.
 
+  **During development, do not run the whole suite after every change.** Ask `op=affects` for the file you
+  touched, then run only the tests it names: the map exists so a change costs one targeted run instead of a full
+  sweep. The full suite belongs at the end of a piece of work, not in the middle of it - a full run per edit hides
+  the signal in the noise and spends the time a second look would have used.
+
 ## When to record
 
 Record an object worth reusing across workspaces: a tool/script, a produced file/build, an environment fact (endpoint/port/path), a research conclusion, or a work record. One object per call; pick one `type`; set the object's workspace in `source`; use whitelist tags.
