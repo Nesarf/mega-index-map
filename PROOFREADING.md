@@ -1064,3 +1064,41 @@ the region between them twice and the file ended up declaring `sesTail` twice. T
 that case outright, and both block markers are asserted before a splice instead of after.
 
 Self-check 260 -> 280 checks, four invariants green.
+
+## Round 30 - one counter cannot be both a diagnosis and a verdict (2026-11-17)
+
+Two smoke checks had been red, stably, for twenty days: `the first-run pass reads the history and reports
+what it found` wanted `phase: "complete"` and got `"partial"`, and `the marker survives, so a second pass has
+nothing pending` wanted zero pending sessions and got one. Stable red reads as environment noise, so the
+honest first step was not to doubt the checks but to ask what the number meant, and the answer was that one
+counter was doing two jobs.
+
+`runSessionMining` counts faults in a single `failed`, and both the resume marker and the reported phase hang
+off it: a file whose read returned `failed > 0` is left out of the marker so the next pass retries it, and any
+`failed` at all makes the whole pass `"partial"`. But the fixture has written its session file with a torn
+last frame since the day the check was added (`0427ebc`, 2026-10-10) - on purpose, to exercise the frame
+decoder, and because a host killed mid-write is the usual way a real session ends up torn. That one damaged
+frame kept the file out of the marker on every pass: permanently pending, permanently partial. On a real store
+the cost is the whole history re-mined at every start - measured in Round 11 at 253 sessions and 1.4 million
+records, about 49 minutes.
+
+The split is by what a second reading would buy. `unreadable` means the file could not be opened at all, and
+that is worth retrying because a lock is temporary. `failed` means damage inside bytes that were opened: the
+eight good frames were read today and the same eight will be read tomorrow, so the marker is written and only
+the count is reported. The marker follows `unreadable`, `phase` follows `unreadable`, and the sentence in
+`note` now says which of the two happened instead of calling both "will be retried".
+
+What let this sit for twenty days is worth more than the fix. The `failed` counter became a verdict on
+2026-11-08 (`1629aa9`, the archive-reading commit, which also started returning `failed: 1` for a file that
+could not be opened - a real improvement, which is how the second job arrived unnoticed). Before that commit
+the counter was a diagnosis only. A check that fails on every run stops being evidence: it is read, correctly
+enough, as a property of this machine rather than of the code, and the next person learns to scroll past it.
+The rule this leaves behind is narrower than "keep the suite green": **a counter that decides something must
+count exactly the thing it names**. One that counts two, and is consulted by two callers that each want only
+one of them, will be wrong in a way no single caller can see.
+
+Two checks now hold the pair, and they are deliberately redundant: the old one asserts `phase === "complete"`,
+the new one asserts `failed >= 1 && unreadable === 0` on the same fixture, so reverting either half of the fix
+turns exactly one of them red.
+
+Self-check 298 -> 300 checks, 4 red -> 0, four invariants green.
