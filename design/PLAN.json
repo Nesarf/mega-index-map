@@ -1,0 +1,161 @@
+{
+  "title": "mega-index-map: a Library an agent asks before it walks the disk",
+  "goals": [
+    {
+      "id": "library",
+      "title": "One plugin, twelve tools, all local: record, query and verify what a workspace has already found",
+      "scope": "release",
+      "status": "active",
+      "parent": null,
+      "after": [],
+      "source": "README.md",
+      "notes": "The root of this plan. Every goal below is a surface of the same plugin, and each one names the files it touches and the suite that judges it. Three things are held invariant on every push: English/ASCII-only text, Windows/macOS/Linux portability, and UTF-8-safe handling of multi-language text.",
+      "touches": ["lib/index.js", "package.json", "cordis.patch.yml"],
+      "verifiedBy": ["scripts/check-consistency.mjs"]
+    },
+    {
+      "id": "record",
+      "title": "The write path: one door for every writer, change detection, and a decision the log keeps",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Tools: library_record",
+      "notes": "A change to an immutable-class object is refused until a person decides, and is then recorded with confirm and a reason that the append-only log keeps as a record-confirm line.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/selfcheck.mjs", "scripts/test-regressions.mjs"]
+    },
+    {
+      "id": "index",
+      "title": "Six jobs on one index: rebuild, audit, index, verify, prune and status",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": ["record"],
+      "source": "README.md, Tools: library_index",
+      "notes": "Existence and identity are kept apart: gone and unreadable are different findings, because a locked file is not a missing one. Above maxHashBytes a file is fingerprinted by size plus a head and a tail slice and the result says partial rather than passing itself off as a digest.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/selfcheck.mjs"]
+    },
+    {
+      "id": "sensitive",
+      "title": "What a sensitive record can and cannot do: sealing, the review in both directions, an explicit decrypt",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": ["record"],
+      "source": "README.md, What a sensitive record can and cannot do",
+      "notes": "Both halves of the retrospective view are read-only: what=candidates answers what the current patterns would seal among readable records, what=sealed answers which encrypted records nobody has judged. Rewording a description to slip past the patterns is not a route this plugin offers.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/selfcheck.mjs"]
+    },
+    {
+      "id": "formats",
+      "title": "A format library that extends itself: 108 signatures, and the ten format ops",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Tools: library_sniff and library_format",
+      "notes": "The signature count is asserted against README.md, README.zh-CN.md and SKILL.md by check-consistency, so documentation cannot drift away from the table. Built-in signatures always win and a conflict is refused unless confirmed.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/check-consistency.mjs", "scripts/selfcheck.mjs"]
+    },
+    {
+      "id": "sessions",
+      "title": "Reading this machine's own sessions, including the exported ZIP archives",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Tools: library_sessions",
+      "notes": "One zstd frame per record, located by the zstd magic and decoded one at a time, so a torn tail is counted and never guessed at. op=semantics checks the store against the rules the host enforces, using the host's own loader where it can be reached.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/selfcheck.mjs", "scripts/test-regressions.mjs"]
+    },
+    {
+      "id": "bootstrap",
+      "title": "The first-run pass: mine the history for what this Library indexes, and then finish",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": ["sessions"],
+      "source": "README.md, First run: mine the history before claiming to be installed",
+      "notes": "Two faults are counted apart, which is what lets the pass end: unreadable means the file could not be opened at all and is retried next time, while failed means damage inside bytes that were opened, whose good records were read and whose re-reading would say the same thing. While one counter held both, a single torn tail kept the pass at partial for ever and every start re-mined the whole store.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/selfcheck.mjs"]
+    },
+    {
+      "id": "project",
+      "title": "The dependency map, the full inventory, the blast radius, and the plan network beside them",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Tools: library_project",
+      "notes": "Language rules are data and include string-path loaders, so a source pulled in by loadUnit or by an import statement becomes an edge either way. A goal naming a test, a directory or a parent that is not there is reported in missing rather than smoothed over.",
+      "touches": ["lib/project-map.js"],
+      "verifiedBy": ["scripts/test-regressions.mjs"]
+    },
+    {
+      "id": "machine",
+      "title": "The machine itself: tools and environments detected, the host encoding reported, an Android device over ADB",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Tools: library_detect, library_encoding, library_adb",
+      "notes": "The built-in seed is machine-neutral: a bare command name resolves from PATH and a location is written in its owner's own words. Tool identity is read statically from the file's own version resource, never by executing it.",
+      "touches": ["lib/index.js"],
+      "verifiedBy": ["scripts/check-portability.mjs", "scripts/selfcheck.mjs"]
+    },
+    {
+      "id": "host",
+      "title": "The plugin surface: the bundle patch, the prompt notice, and the skill an agent reads first",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Install; cordis.patch.yml; skills/mega-index/SKILL.md",
+      "notes": "injectPrompt prepends a short notice to each session's first user message, and its wording can be replaced wholesale with a file outside the package. The manifest is asserted here as a plugin manifest, because a profile skeleton once overwrote it and every other check still passed.",
+      "touches": ["cordis.patch.yml", "skills/mega-index/SKILL.md", "package.json"],
+      "verifiedBy": ["scripts/check-consistency.mjs"]
+    },
+    {
+      "id": "invariants",
+      "title": "The four checkers, the five-stage self-check, and a bench that keeps a measured claim measured",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "README.md, Notes; package.json scripts",
+      "notes": "npm run check runs ASCII, consistency, portability and isolation; npm run selfcheck runs smoke, traversal, proofread, traversal, smoke and reports per axis. Timed work is deliberately outside the invariant chain, because a flaky invariant stops being read.",
+      "touches": ["scripts/check-ascii.mjs", "scripts/check-consistency.mjs", "scripts/check-portability.mjs", "scripts/check-isolation.mjs", "scripts/selfcheck.mjs", "scripts/bench.mjs"],
+      "verifiedBy": ["scripts/check-consistency.mjs"]
+    },
+    {
+      "id": "isolation",
+      "title": "The boundary with the sibling cross-harness build, enforced in both directions",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [],
+      "source": "ISOLATION.md",
+      "notes": "Nothing here writes outside the Library home, the OS temp directory, or a path the caller passed in, and the sibling build is read-only with respect to this one.",
+      "touches": ["ISOLATION.md", "scripts/check-isolation.mjs"],
+      "verifiedBy": ["scripts/check-isolation.mjs"]
+    },
+    {
+      "id": "map-guard",
+      "title": "The map has no judge of its own: readPlan and op=map are hand-verified only",
+      "scope": "capability",
+      "status": "open",
+      "parent": "library",
+      "after": ["project"],
+      "source": "scripts/test-regressions.mjs names two affects checks and nothing else",
+      "notes": "This repository reads every other project's plan, and nothing checks that it reads one correctly. Uncovered: a directory standing for the files under it, the missing report for a touches or a verifiedBy path that is not there, a parent or an after edge pointing at a goal the file does not have, and op=map's own counts. A plan file that drifts is a map that lies, which is the failure this plugin exists to catch in others.",
+      "touches": ["lib/project-map.js", "scripts/test-regressions.mjs"],
+      "verifiedBy": ["scripts/test-regressions.mjs"]
+    }
+  ]
+}
