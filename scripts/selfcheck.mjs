@@ -597,6 +597,11 @@ function smoke() {
 
     const mined = await call("library_sessions", { op: "bootstrap", dir: path.join(HOME, "sessions"), budgetMs: 60000 });
     check("PORTABILITY", "smoke", "the first-run pass reads the history and reports what it found", mined.ok === true && mined.phase === "complete" && mined.sessionsTotal >= 2 && mined.found >= 4, JSON.stringify({ phase: mined.phase, total: mined.sessionsTotal, found: mined.found, added: mined.added }));
+    // Two faults, two counters, and this fixture proves both halves at once: its session file ends in a torn
+    // frame (damage inside the bytes - the pass reads the good frames and must still write its marker) while
+    // no file here is unopenable. Sharing one counter is what held the pass at "partial" for ever, so
+    // `phase` above and this line hold each other: revert either one and one of them goes red.
+    check("PORTABILITY", "smoke", "a torn tail is damage inside a file, not a file that could not be opened", mined.failed >= 1 && mined.unreadable === 0, JSON.stringify({ failed: mined.failed, unreadable: mined.unreadable, phase: mined.phase }));
     const minedQuery = await call("library_query", { query: "mined", limit: 100 });
     const minedRows = JSON.parse(fs.readFileSync(path.join(HOME, "library", "index.json"), "utf8")).objects.filter((o) => o.source === "session-mining");
     // The mined sensitive row must be encrypted: metadata visible, body not.
