@@ -10,8 +10,14 @@
       "after": [],
       "source": "README.md",
       "notes": "The root of this plan. Every goal below is a surface of the same plugin, and each one names the files it touches and the suite that judges it. Three things are held invariant on every push: English/ASCII-only text, Windows/macOS/Linux portability, and UTF-8-safe handling of multi-language text.",
-      "touches": ["lib/index.js", "package.json", "cordis.patch.yml"],
-      "verifiedBy": ["scripts/check-consistency.mjs"]
+      "touches": [
+        "lib/index.js",
+        "package.json",
+        "cordis.patch.yml"
+      ],
+      "verifiedBy": [
+        "scripts/check-consistency.mjs"
+      ]
     },
     {
       "id": "record",
@@ -22,8 +28,13 @@
       "after": [],
       "source": "README.md, Tools: library_record",
       "notes": "A change to an immutable-class object is refused until a person decides, and is then recorded with confirm and a reason that the append-only log keeps as a record-confirm line.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/selfcheck.mjs", "scripts/test-regressions.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs",
+        "scripts/test-regressions.mjs"
+      ]
     },
     {
       "id": "index",
@@ -31,11 +42,17 @@
       "scope": "capability",
       "status": "done",
       "parent": "library",
-      "after": ["record"],
+      "after": [
+        "record"
+      ],
       "source": "README.md, Tools: library_index",
       "notes": "Existence and identity are kept apart: gone and unreadable are different findings, because a locked file is not a missing one. Above maxHashBytes a file is fingerprinted by size plus a head and a tail slice and the result says partial rather than passing itself off as a digest.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/selfcheck.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
     },
     {
       "id": "sensitive",
@@ -43,11 +60,17 @@
       "scope": "capability",
       "status": "done",
       "parent": "library",
-      "after": ["record"],
+      "after": [
+        "record"
+      ],
       "source": "README.md, What a sensitive record can and cannot do",
       "notes": "Both halves of the retrospective view are read-only: what=candidates answers what the current patterns would seal among readable records, what=sealed answers which encrypted records nobody has judged. Rewording a description to slip past the patterns is not a route this plugin offers.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/selfcheck.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
     },
     {
       "id": "formats",
@@ -58,8 +81,13 @@
       "after": [],
       "source": "README.md, Tools: library_sniff and library_format",
       "notes": "The signature count is asserted against README.md, README.zh-CN.md and SKILL.md by check-consistency, so documentation cannot drift away from the table. Built-in signatures always win and a conflict is refused unless confirmed.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/check-consistency.mjs", "scripts/selfcheck.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/check-consistency.mjs",
+        "scripts/selfcheck.mjs"
+      ]
     },
     {
       "id": "sessions",
@@ -70,8 +98,13 @@
       "after": [],
       "source": "README.md, Tools: library_sessions",
       "notes": "One zstd frame per record, located by the zstd magic and decoded one at a time, so a torn tail is counted and never guessed at. op=semantics checks the store against the rules the host enforces, using the host's own loader where it can be reached.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/selfcheck.mjs", "scripts/test-regressions.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs",
+        "scripts/test-regressions.mjs"
+      ]
     },
     {
       "id": "bootstrap",
@@ -79,11 +112,17 @@
       "scope": "capability",
       "status": "done",
       "parent": "library",
-      "after": ["sessions"],
+      "after": [
+        "sessions"
+      ],
       "source": "README.md, First run: mine the history before claiming to be installed",
       "notes": "Two faults are counted apart, which is what lets the pass end: unreadable means the file could not be opened at all and is retried next time, while failed means damage inside bytes that were opened, whose good records were read and whose re-reading would say the same thing. While one counter held both, a single torn tail kept the pass at partial for ever and every start re-mined the whole store.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/selfcheck.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
     },
     {
       "id": "project",
@@ -94,8 +133,12 @@
       "after": [],
       "source": "README.md, Tools: library_project",
       "notes": "Language rules are data and include string-path loaders, so a source pulled in by loadUnit or by an import statement becomes an edge either way. A goal naming a test, a directory or a parent that is not there is reported in missing rather than smoothed over.",
-      "touches": ["lib/project-map.js"],
-      "verifiedBy": ["scripts/test-regressions.mjs"]
+      "touches": [
+        "lib/project-map.js"
+      ],
+      "verifiedBy": [
+        "scripts/test-regressions.mjs"
+      ]
     },
     {
       "id": "machine",
@@ -106,8 +149,13 @@
       "after": [],
       "source": "README.md, Tools: library_detect, library_encoding, library_adb",
       "notes": "The built-in seed is machine-neutral: a bare command name resolves from PATH and a location is written in its owner's own words. Tool identity is read statically from the file's own version resource, never by executing it.",
-      "touches": ["lib/index.js"],
-      "verifiedBy": ["scripts/check-portability.mjs", "scripts/selfcheck.mjs"]
+      "touches": [
+        "lib/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/check-portability.mjs",
+        "scripts/selfcheck.mjs"
+      ]
     },
     {
       "id": "host",
@@ -118,8 +166,14 @@
       "after": [],
       "source": "README.md, Install; cordis.patch.yml; skills/mega-index/SKILL.md",
       "notes": "injectPrompt prepends a short notice to each session's first user message, and its wording can be replaced wholesale with a file outside the package. The manifest is asserted here as a plugin manifest, because a profile skeleton once overwrote it and every other check still passed.",
-      "touches": ["cordis.patch.yml", "skills/mega-index/SKILL.md", "package.json"],
-      "verifiedBy": ["scripts/check-consistency.mjs"]
+      "touches": [
+        "cordis.patch.yml",
+        "skills/mega-index/SKILL.md",
+        "package.json"
+      ],
+      "verifiedBy": [
+        "scripts/check-consistency.mjs"
+      ]
     },
     {
       "id": "invariants",
@@ -130,8 +184,17 @@
       "after": [],
       "source": "README.md, Notes; package.json scripts",
       "notes": "npm run check runs ASCII, consistency, portability and isolation; npm run selfcheck runs smoke, traversal, proofread, traversal, smoke and reports per axis. Timed work is deliberately outside the invariant chain, because a flaky invariant stops being read.",
-      "touches": ["scripts/check-ascii.mjs", "scripts/check-consistency.mjs", "scripts/check-portability.mjs", "scripts/check-isolation.mjs", "scripts/selfcheck.mjs", "scripts/bench.mjs"],
-      "verifiedBy": ["scripts/check-consistency.mjs"]
+      "touches": [
+        "scripts/check-ascii.mjs",
+        "scripts/check-consistency.mjs",
+        "scripts/check-portability.mjs",
+        "scripts/check-isolation.mjs",
+        "scripts/selfcheck.mjs",
+        "scripts/bench.mjs"
+      ],
+      "verifiedBy": [
+        "scripts/check-consistency.mjs"
+      ]
     },
     {
       "id": "isolation",
@@ -142,20 +205,33 @@
       "after": [],
       "source": "ISOLATION.md",
       "notes": "Nothing here writes outside the Library home, the OS temp directory, or a path the caller passed in, and the sibling build is read-only with respect to this one.",
-      "touches": ["ISOLATION.md", "scripts/check-isolation.mjs"],
-      "verifiedBy": ["scripts/check-isolation.mjs"]
+      "touches": [
+        "ISOLATION.md",
+        "scripts/check-isolation.mjs"
+      ],
+      "verifiedBy": [
+        "scripts/check-isolation.mjs"
+      ]
     },
     {
       "id": "map-guard",
-      "title": "The map has no judge of its own: readPlan and op=map are hand-verified only",
+      "title": "The map has a judge now: readPlan and op=map are no longer hand-verified",
       "scope": "capability",
-      "status": "open",
+      "status": "done",
       "parent": "library",
-      "after": ["project"],
+      "after": [
+        "project"
+      ],
       "source": "scripts/test-regressions.mjs names two affects checks and nothing else",
-      "notes": "This repository reads every other project's plan, and nothing checks that it reads one correctly. Uncovered: a directory standing for the files under it, the missing report for a touches or a verifiedBy path that is not there, a parent or an after edge pointing at a goal the file does not have, and op=map's own counts. A plan file that drifts is a map that lies, which is the failure this plugin exists to catch in others.",
-      "touches": ["lib/project-map.js", "scripts/test-regressions.mjs"],
-      "verifiedBy": ["scripts/test-regressions.mjs"]
+      "notes": "The gap was found while writing this repository own plan: library_project had two affects checks and nothing at all for op=map or op=plan, so this plugin reads every other project plan while nobody checked that it reads one correctly. Filled on 2026-11-17 in scripts/test-regressions.mjs, riding the fixture tree those affects checks already build (one more file, design/PLAN.json): a directory in touches expands to the files the graph knows under it, a healthy plan reports an empty missing list, each of the four broken-record kinds is reported (a touched path that is not there, a judge that is not there, a parent that is not there, an ordering edge that is not there), and op=map counts files and carries the plan network it found. The same round turned up something worth more than the checks themselves: test-regressions had never been part of npm run check, so when fed6c71 reclassified bootstrap faults it broke four assertions here and nothing said so until the suite was run by hand. It is the fifth step of check now, and those four assertions carry the new meaning - a file that opened but did not decode gets its marker and the pass completes, while the unopenable kind has no clean fixture on Windows, which is stated in a comment rather than quietly skipped.",
+      "touches": [
+        "lib/project-map.js",
+        "scripts/test-regressions.mjs"
+      ],
+      "verifiedBy": [
+        "scripts/test-regressions.mjs"
+      ],
+      "state": "Judged, and in the chain: npm run check runs it as the fifth step."
     }
   ]
 }

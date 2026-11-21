@@ -135,18 +135,28 @@ try {
   fs.writeFileSync(path.join(home, "library", "bootstrap-state.json"), JSON.stringify({ seen: legacySeen }), "utf8");
   const first = await call("library_sessions", { op: "bootstrap", dir: sessions, budgetMs: 60000 });
   assert.equal(first.records, 6, "plain, zstd, stored and streaming ZIP members are read despite legacy markers");
-  assert.equal(first.phase, "partial", "a damaged session is not reported complete");
+  // 2026-11-17: these four assertions used to demand that a damaged session keep the whole pass at
+  // partial and stay out of the marker. That turned out to be the bug rather than the requirement: a
+  // torn last frame is how a real session ends when the host is killed mid-write, so re-reading the
+  // same bytes at every boot bought nothing and held the pass at partial for ever. Damage inside a
+  // file that OPENED is now a diagnostic; only a file that could not be opened at all is retried.
+  // `broken` here is the first kind - a .zstd name over bytes that are not zstd.
+  assert.equal(first.phase, "complete", "damage inside a file that opened does not hold the pass back");
   assert.ok(first.found >= 1, "decoded records reached mining");
 
   const statePath = path.join(home, "library", "bootstrap-state.json");
   const state = JSON.parse(fs.readFileSync(statePath, "utf8"));
-  assert.ok(!state.seen[broken], "damaged session has no success marker");
+  assert.ok(state.seen[broken], "a file that opened but did not decode still gets its marker");
   assert.ok(state.seen[empty], "a valid empty session has a success marker");
   assert.ok(state.seen[archive].startsWith("jsonl-zip-v1:"), "ZIP marker uses the corrected reader format");
 
+  // The other kind - listed, then unopenable - has no fixture here on purpose: making one on Windows
+  // means ACL work, and that would turn this suite into a permissions suite. Its behaviour is the
+  // catch around readFileSync in mineSessionFile, and the self-check covers the split from the other
+  // side by asserting unreadable is zero while failed is not. Stated rather than quietly skipped.
   const second = await call("library_sessions", { op: "bootstrap", dir: sessions, budgetMs: 60000 });
-  assert.equal(second.sessionsTotal, 1, "only the damaged input is retried incrementally");
-  assert.equal(second.phase, "partial", "retrying damaged input remains incomplete");
+  assert.equal(second.sessionsTotal, 0, "nothing is retried when every file could be opened");
+  assert.equal(second.phase, "complete", "and the pass stays complete");
 
   fs.writeFileSync(broken, zstdCompressSync(Buffer.from(record, "utf8")));
   const repaired = await call("library_sessions", { op: "bootstrap", dir: sessions });
@@ -169,6 +179,58 @@ try {
   const javascript = await call("library_project", { op: "affects", root: project, file: "pkg/util.js" });
   assert.equal(javascript.ok, true);
   assert.ok(javascript.files.includes("tests/keep.mjs"), "JavaScript relative import remains internal");
+
+  // op=plan and op=map had no regression check at all until now, while three repositories on this
+  // machine keep a design/PLAN.json that this reader is the only way in to. A reader nobody tests,
+  // pointed at maps that decide what gets built next, is the wrong way round.
+  //
+  // The fixture rides on the tree the affects checks above already built, so it costs one file.
+  fs.mkdirSync(path.join(project, "design"), { recursive: true });
+  fs.writeFileSync(path.join(project, "design", "PLAN.json"), JSON.stringify({
+    title: "fixture",
+    goals: [
+      { id: "root", title: "the root", scope: "project", status: "active", parent: null, after: [], touches: ["pkg"], verifiedBy: ["tests/keep.mjs"] },
+      { id: "child", title: "a child", scope: "task", status: "open", parent: "root", after: ["root"], touches: ["pkg/util.py", "pkg/gone.py"], verifiedBy: ["tests/none.mjs", "tests/test_absolute.py"] },
+      { id: "orphan", title: "a goal whose edges go nowhere", scope: "task", status: "open", parent: "ghost", after: ["ghost"], touches: [], verifiedBy: [] },
+    ],
+  }, null, 2), "utf8");
+
+  const plan = await call("library_project", { op: "plan", root: project });
+  assert.equal(plan.ok, true);
+  assert.equal(plan.plan.source, "design/PLAN.json", "the file it read is named in the answer");
+  assert.equal(plan.plan.total, 3, "three goals are read");
+  assert.deepEqual(plan.plan.byStatus, { active: 1, open: 2 }, "statuses are counted");
+
+  const rootGoal = plan.plan.goals.find((g) => g.id === "root");
+  // A directory stands for the files the graph knows under it - not for the directory, and not for
+  // everything on disk. This is the shape three repositories rely on: goals name src/, self/, boot/.
+  assert.ok(rootGoal.files.includes("pkg/util.py"), "a directory in touches stands for files under it");
+  assert.ok(rootGoal.files.includes("pkg/consumer.py"), "and for more than the first of them");
+  assert.deepEqual(rootGoal.tests, ["tests/keep.mjs"], "a verifiedBy path that exists is kept");
+
+  // One broken record per kind. A missing report that reported nothing would let a stale plan look
+  // healthy, which is precisely the failure this reader exists to catch in somebody else's repository.
+  const missing = plan.plan.missing.map((m) => m.kind + ":" + m.path).sort();
+  assert.ok(missing.includes("touches:pkg/gone.py"), "a touched path that is not there is reported");
+  assert.ok(missing.includes("verifiedBy:tests/none.mjs"), "a judge that is not there is reported");
+  assert.ok(missing.includes("parent:ghost"), "a parent that is not there is reported");
+  assert.ok(missing.includes("after:ghost"), "an ordering edge that is not there is reported");
+
+  const cleanPlan = path.join(home, "clean-project");
+  fs.mkdirSync(path.join(cleanPlan, "design"), { recursive: true });
+  fs.writeFileSync(path.join(cleanPlan, "a.js"), "export default 1;\n", "utf8");
+  fs.writeFileSync(path.join(cleanPlan, "tests.mjs"), "import a from './a.js';\n", "utf8");
+  fs.writeFileSync(path.join(cleanPlan, "design", "PLAN.json"), JSON.stringify({
+    goals: [{ id: "only", title: "a healthy plan", scope: "task", status: "done", parent: null, after: [], touches: ["a.js"], verifiedBy: ["tests.mjs"] }],
+  }), "utf8");
+  const healthy = await call("library_project", { op: "plan", root: cleanPlan });
+  assert.deepEqual(healthy.plan.missing, [], "a plan whose every path exists reports nothing missing");
+
+  const mapped = await call("library_project", { op: "map", root: project });
+  assert.equal(mapped.ok, true);
+  assert.ok(mapped.files > 0, "op=map counts files");
+  assert.equal(mapped.plan && mapped.plan.total, 3, "op=map carries the plan network it found");
+  assert.ok(Array.isArray(mapped.inventory.unmappedFiles), "op=map says what it could not reach");
 
   console.log("regressions OK");
 } finally {
