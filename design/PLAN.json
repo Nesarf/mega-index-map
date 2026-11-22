@@ -232,6 +232,78 @@
         "scripts/test-regressions.mjs"
       ],
       "state": "Judged, and in the chain: npm run check runs it as the fifth step."
+    },
+    {
+      "id": "five-sections",
+      "title": "The five-section plan reader: structure, units, status, plan, environment, with a sections declaration that is judged",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [
+        "map-guard"
+      ],
+      "source": "templates/README.md",
+      "notes": "readPlan now covers the five sections a project map is made of: structure (layout convention with entries that must exist), units and plan (the goal rows read two ways), status (summary, as-of and metrics), environment (tools, runtimes, borrowed pieces, carried through as written). A sections declaration says which of the five the file covers, and declaring a section without writing it is reported as missing rather than smoothed over. Old plans without a declaration are inferred: goals cover units and plan, each block covers its own section.",
+      "touches": [
+        "lib/project-map.js",
+        "templates/README.md",
+        "scripts/test-regressions.mjs"
+      ],
+      "verifiedBy": [
+        "scripts/test-regressions.mjs"
+      ]
+    },
+    {
+      "id": "plan-templates",
+      "title": "Ten PLAN.json templates, each one judged by the regression suite",
+      "scope": "capability",
+      "status": "done",
+      "parent": "library",
+      "after": [
+        "five-sections"
+      ],
+      "source": "templates/README.md",
+      "notes": "templates/ ships ten starting skeletons: minimal, capability, migration, spec, plan, sections, status, structure, environment, units. The regression suite copies each into a fresh fixture repository, reads it through library_project op=plan and asserts an empty missing list, so a template that drifts from what the reader enforces fails the check chain.",
+      "touches": [
+        "templates/"
+      ],
+      "verifiedBy": [
+        "scripts/test-regressions.mjs"
+      ]
     }
-  ]
+  ],
+  "sections": [
+    "structure",
+    "units",
+    "status",
+    "plan",
+    "environment"
+  ],
+  "structure": {
+    "layout": "lib/ ships the plugin, scripts/ the judges, templates/ the PLAN skeletons, skills/ the agent-facing SKILL.md, design/ the map itself.",
+    "entries": {
+      "lib/": "the plugin implementation, one core per tool family",
+      "scripts/": "the invariant checkers, the self-check and the regression suite",
+      "templates/": "the ten PLAN.json skeletons the reader is judged against",
+      "skills/": "the skill an agent reads first",
+      "design/": "this plan and the decisions it records"
+    }
+  },
+  "status": {
+    "summary": "Twelve capability surfaces are done; the release root stays active while the five-section reader and the template family settle in.",
+    "asOf": "2026-11-23",
+    "metrics": {
+      "goalsDone": 14,
+      "goalsOpen": 1
+    }
+  },
+  "environment": {
+    "tools": [
+      "node"
+    ],
+    "runtimes": [
+      "node >= 20"
+    ],
+    "borrowed": []
+  }
 }
