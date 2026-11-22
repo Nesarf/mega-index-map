@@ -1,0 +1,9 @@
+{
+  "title": "project-name: the environment section alone",
+  "sections": ["environment"],
+  "environment": {
+    "tools": ["ffmpeg", "7z"],
+    "runtimes": ["node 24"],
+    "borrowed": ["external/opna-render.exe"]
+  }
+}

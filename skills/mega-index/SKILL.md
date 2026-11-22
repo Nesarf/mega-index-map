@@ -31,7 +31,8 @@ prepends this same advice to each session (wording replaceable at `$DSH_HOME/meg
   most depended-on files; `op=affects file=<path>` names every file and test that transitively imports the
   given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go), and string-path loaders such as
   `loadUnit` count as dependencies too. `op=plan` reads `design/PLAN.json` (the goal network) and reports
-  every broken record; `templates/` ships four starting skeletons (minimal, capability, migration, spec).
+  every broken record; a project map is made of five sections - structure, units, status, plan and
+  environment - and `templates/` ships starting skeletons for each, judged by the regression suite.
 
   **During development, do not run the whole suite after every change.** Ask `op=affects` for the file you
   touched, then run only the tests it names: the map exists so a change costs one targeted run instead of a full

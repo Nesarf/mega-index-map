@@ -239,21 +239,65 @@ try {
   fs.mkdirSync(path.join(templateHome, "design"), { recursive: true });
   const templateDir = path.join(ROOT, "templates");
   const templateFiles = fs.readdirSync(templateDir).filter((n) => n.startsWith("PLAN.") && n.endsWith(".json")).sort();
-  assert.deepEqual(templateFiles, ["PLAN.capability.json", "PLAN.migration.json", "PLAN.minimal.json", "PLAN.spec.json"],
-    "the four template kinds are all present");
+  assert.deepEqual(templateFiles, [
+    "PLAN.capability.json", "PLAN.environment.json", "PLAN.migration.json", "PLAN.minimal.json",
+    "PLAN.plan.json", "PLAN.sections.json", "PLAN.spec.json", "PLAN.status.json",
+    "PLAN.structure.json", "PLAN.units.json",
+  ], "the ten template kinds are all present");
   assert.ok(fs.existsSync(path.join(templateDir, "README.md")), "the template dictionary ships with them");
   for (const name of templateFiles) {
     const raw = JSON.parse(fs.readFileSync(path.join(templateDir, name), "utf8"));
-    assert.ok(Array.isArray(raw.goals) && raw.goals.length > 0, `${name} has goals`);
-    for (const g of raw.goals) {
+    assert.ok(Array.isArray(raw.goals) || raw.goals === undefined, `${name} has goals or none`);
+    for (const g of raw.goals || []) {
       assert.ok(g.id && g.title && g.status, `${name}: every goal carries id, title and status`);
     }
     fs.copyFileSync(path.join(templateDir, name), path.join(templateHome, "design", "PLAN.json"));
     const read = await call("library_project", { op: "plan", root: templateHome });
     assert.equal(read.ok, true, `${name} is read back`);
     assert.deepEqual(read.plan.missing, [], `${name} lands with an empty missing list`);
-    assert.equal(read.plan.total, raw.goals.length, `${name} keeps all its goals`);
+    assert.equal(read.plan.total, raw.goals ? raw.goals.length : 0, `${name} keeps all its goals`);
+    const expected = Array.isArray(raw.sections) ? [...raw.sections].sort() : raw.goals ? ["plan", "units"] : ["environment", "status", "structure"].filter((s) => raw[s]);
+    assert.deepEqual(read.plan.sections, expected.sort(), `${name} covers the sections it claims`);
   }
+
+  // The two new refusals: a section declared but never written, and a structure entry that is not
+  // there. Both are broken records, reported like a touched path or a judge that is not there.
+  fs.writeFileSync(path.join(templateHome, "design", "PLAN.json"), JSON.stringify({
+    title: "fixture",
+    sections: ["status"],
+    goals: [{ id: "only", title: "a goal", scope: "task", status: "done", parent: null, after: [], touches: ["README.md"], verifiedBy: ["scripts/selfcheck.mjs"] }],
+  }), "utf8");
+  const declaredAbsent = await call("library_project", { op: "plan", root: templateHome });
+  assert.ok(declaredAbsent.plan.missing.some((m) => m.kind === "sections" && m.path === "status (declared but absent)"),
+    "a section declared but never written is reported");
+
+  fs.writeFileSync(path.join(templateHome, "design", "PLAN.json"), JSON.stringify({
+    title: "fixture",
+    sections: ["nope"],
+    structure: { layout: "x", entries: { "gone-dir/": "role" } },
+  }), "utf8");
+  const badSections = await call("library_project", { op: "plan", root: templateHome });
+  assert.ok(badSections.plan.missing.some((m) => m.kind === "sections" && m.path === "nope"),
+    "a section name outside the five is reported");
+  assert.ok(badSections.plan.missing.some((m) => m.kind === "structure" && m.path === "gone-dir/"),
+    "a structure entry that is not there is reported");
+
+  // The full five-section shape reads back with every block carried through.
+  fs.writeFileSync(path.join(templateHome, "design", "PLAN.json"), JSON.stringify({
+    title: "fixture",
+    sections: ["structure", "units", "status", "plan", "environment"],
+    structure: { layout: "l", entries: { "src/": "code" } },
+    status: { summary: "s", asOf: "2026-11-22", metrics: { done: 1 } },
+    environment: { tools: ["ffmpeg"], runtimes: [], borrowed: [] },
+    goals: [{ id: "only", title: "a goal", scope: "task", status: "done", parent: null, after: [], touches: ["README.md"], verifiedBy: ["scripts/selfcheck.mjs"] }],
+  }), "utf8");
+  const full = await call("library_project", { op: "plan", root: templateHome });
+  assert.deepEqual(full.plan.missing, [], "the full five-section shape is healthy");
+  assert.deepEqual(full.plan.sections, ["environment", "plan", "status", "structure", "units"],
+    "all five sections are covered");
+  assert.equal(full.plan.status.summary, "s", "the status block is carried through");
+  assert.equal(full.plan.environment.tools[0], "ffmpeg", "the environment block is carried through");
+  assert.equal(full.plan.structure.entries["src/"], "code", "the structure block is carried through");
 
   const mapped = await call("library_project", { op: "map", root: project });
   assert.equal(mapped.ok, true);

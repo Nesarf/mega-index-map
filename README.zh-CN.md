@@ -65,8 +65,9 @@ dsh plugin --profile web update mega-index-map
   `op=affects file=<路径>` 列出所有间接导入该文件的文件与测试。语言规则是数据（js/ts、c/cpp、hmoca/hmyr、
   py、rs、go）。依赖不只是 import 语句：交给加载器的字符串路径也算，所以 `引入 "./x.hmoca"` 与
   `loadUnit("./x.hmoca")` 都会成为边——两种写法都不会再从图上消失。`op=plan` 读 `design/PLAN.json`
-  （目标网络）并把每一条坏记录报出来；`templates/` 附四种起始骨架（minimal、capability、migration、
-  spec），每一种都由回归套件验收。
+  （目标网络）并把每一条坏记录报出来；一张工程地图由五部分组成——结构、单位详情、总现状、总规划、
+  外部环境——`templates/` 附每部分的起始骨架（minimal、capability、migration、spec，以及五段合一的大图
+  与各段独立文件），每一种都由回归套件验收。
 
 
 ### 首次运行：先把历史淘一遍，再自称装好

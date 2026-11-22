@@ -1,0 +1,40 @@
+{
+  "title": "project-name: the plan section alone - the goal network, read for what comes next",
+  "sections": ["units", "plan"],
+  "goals": [
+    {
+      "id": "foundation",
+      "title": "The foundation everything else builds on",
+      "scope": "release",
+      "status": "done",
+      "parent": null,
+      "after": [],
+      "source": "README.md",
+      "notes": "The plan section is the network: parent edges for ownership, after edges for build order, statuses grouped for the glance. A done foundation is what lets the later rows exist at all.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "surface",
+      "title": "The surface stage, open until the foundation is cross-checked",
+      "scope": "capability",
+      "status": "open",
+      "parent": "foundation",
+      "after": [
+        "foundation"
+      ],
+      "source": "README.md",
+      "notes": "The after edge is the plan's promise: this stage does not honestly start before the foundation is done. op=plan groups by status, so the open set is the next work at a glance.",
+      "touches": [
+        "src/convert.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}

@@ -1,14 +1,37 @@
 # PLAN.json templates
 
-Four starting skeletons for `design/PLAN.json`, one per repository shape. Each template is a
+A project map is made of five sections, and the templates cover each. A template is a
 **readable, self-contained plan**: copy it to your repository's `design/PLAN.json`, replace the
-example goals with your own, then run `library_project op=plan root=<your repository>` and make
+example content with your own, then run `library_project op=plan root=<your repository>` and make
 the `missing` list empty. A healthy plan reports an empty missing list, which is the reader's
-whole point: a touched path that is not there, a judge that is not there, or an edge that points
-nowhere is reported instead of being smoothed over.
+whole point: a touched path that is not there, a judge that is not there, a structure entry that
+is not there, or a declared section that was never written is reported instead of being smoothed
+over.
 
-| Template | Repository shape |
+## The five sections
+
+| Section | What it holds | Where it lives |
+|---|---|---|
+| `structure` | The layout convention: what lives where and why. The live file/edge picture is what `op=map` computes, so the file keeps the convention, not a file list that drifts. | the `structure` block: `layout` sentence plus `entries` (directory to role). The `entries` paths must exist. |
+| `units` | The detail per unit: each goal read for what it is, what it touches, and what judges it. | the `goals` array, read one row at a time. |
+| `status` | The overall state: one summary sentence, the as-of date, and the metrics. | the `status` block: `summary`, `asOf`, `metrics`. |
+| `plan` | The roadmap: the same goals read for their network - parents, order, statuses. | the `goals` array, read through `parent`/`after`/`status`. |
+| `environment` | The world outside the repository: tools on PATH, runtimes, borrowed pieces. Carried through as written, never verified. | the `environment` block: `tools`, `runtimes`, `borrowed`. |
+
+A `sections` declaration at the top says which of the five the file covers. Declaring one and not
+writing it is a broken record. Without a declaration, the reader infers the coverage: goals cover
+`units` and `plan`, and each of the three blocks covers its own section.
+
+## The templates
+
+| Template | Covers |
 |---|---|
+| `PLAN.sections.json` | All five sections in one unified map |
+| `PLAN.structure.json` | `structure` alone |
+| `PLAN.units.json` | `units` (and `plan`, since goals carry both) |
+| `PLAN.status.json` | `status` alone |
+| `PLAN.plan.json` | `plan` (and `units`) |
+| `PLAN.environment.json` | `environment` alone |
 | `PLAN.minimal.json` | One goal, the field anatomy itself |
 | `PLAN.capability.json` | A plugin or tool: one release root, one goal per capability |
 | `PLAN.migration.json` | A stage-by-stage migration: settled plan, then one goal per stage |

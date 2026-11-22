@@ -1,0 +1,60 @@
+{
+  "title": "project-name: one line on what this repository is",
+  "sections": ["structure", "units", "status", "plan", "environment"],
+  "structure": {
+    "layout": "One sentence on the layout convention: src/ holds the shipped code, scripts/ the judges, docs/ the decisions.",
+    "entries": {
+      "src/": "the shipped code",
+      "docs/": "the design documents the goals cite"
+    }
+  },
+  "status": {
+    "summary": "Where the project stands in one sentence, and what is being worked on right now.",
+    "asOf": "YYYY-MM-DD",
+    "metrics": {
+      "goalsDone": 1,
+      "goalsOpen": 1
+    }
+  },
+  "environment": {
+    "tools": ["ffmpeg", "7z"],
+    "runtimes": ["node 24"],
+    "borrowed": ["external/opna-render.exe"]
+  },
+  "goals": [
+    {
+      "id": "core",
+      "title": "The core capability the repository exists for",
+      "scope": "release",
+      "status": "done",
+      "parent": null,
+      "after": [],
+      "source": "README.md",
+      "notes": "Each goal is one unit of the map: its id, what it touches, and the suite that judges it. The notes carry the detail - what was decided and why.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "next",
+      "title": "The next surface, still open",
+      "scope": "capability",
+      "status": "open",
+      "parent": "core",
+      "after": [
+        "core"
+      ],
+      "source": "README.md",
+      "notes": "The plan section is this network: parent edges for ownership, after edges for build order, statuses for what is next.",
+      "touches": [
+        "src/convert.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}

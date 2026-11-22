@@ -1,0 +1,11 @@
+{
+  "title": "project-name: the structure section alone",
+  "sections": ["structure"],
+  "structure": {
+    "layout": "One sentence on the layout convention: src/ holds the shipped code, scripts/ the judges, docs/ the decisions.",
+    "entries": {
+      "src/": "the shipped code",
+      "docs/": "the design documents the goals cite"
+    }
+  }
+}

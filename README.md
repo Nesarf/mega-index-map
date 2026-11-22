@@ -81,8 +81,9 @@ dsh plugin --profile web update mega-index-map
   `import` statement: a string path handed to a loader counts too, so hmoca's own import statement and a
   call like `loadUnit("./x.hmoca")` both become edges, and a source pulled in by either spelling stops
   disappearing from the map. `op=plan` reads `design/PLAN.json` (the goal network) and reports every broken
-  record; `templates/` ships four starting skeletons (minimal, capability, migration, spec), each judged
-  by the regression suite.
+  record; a project map is made of five sections - structure, units, status, plan and environment - and
+  `templates/` ships starting skeletons for each (minimal, capability, migration, spec, plus the
+  five-section unified map and the per-section files), every one judged by the regression suite.
 
 ### First run: mine the history before claiming to be installed
 

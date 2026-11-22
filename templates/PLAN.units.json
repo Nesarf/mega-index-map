@@ -1,0 +1,38 @@
+{
+  "title": "project-name: the units section alone - one goal per unit, the detail first",
+  "sections": ["units", "plan"],
+  "goals": [
+    {
+      "id": "reader",
+      "title": "The reader unit: what it accepts and what it refuses",
+      "scope": "capability",
+      "status": "done",
+      "parent": null,
+      "after": [],
+      "source": "README.md, Tools: reader",
+      "notes": "A unit is a goal read for its detail: what it is, what it touches, what judges it, and the decision its notes record. This row reads as the detail sheet of the reader unit.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "writer",
+      "title": "The writer unit: the other half of the same surface",
+      "scope": "capability",
+      "status": "active",
+      "parent": null,
+      "after": [],
+      "source": "README.md, Tools: writer",
+      "notes": "Two units can be independent - no parent, no after edge - when neither owns the other. The units section answers per-unit questions; the plan section (the same goals read for their edges) answers what comes next.",
+      "touches": [
+        "src/convert.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "title": "project-name: the status section alone",
+  "sections": ["status"],
+  "status": {
+    "summary": "Where the project stands in one sentence, and what is being worked on right now.",
+    "asOf": "YYYY-MM-DD",
+    "metrics": {
+      "goalsDone": 1,
+      "goalsOpen": 1
+    }
+  }
+}
