@@ -1,6 +1,6 @@
 {
   "name": "mega-index-map",
-  "version": "0.4.3",
+  "version": "0.5.0",
   "description": "Cross-workspace Library for DeepSeek Harness: record, query and verify files, tools, environments, knowledge and work records across workspaces - with a self-extending file-format library, session-log mining, and a source-tree dependency map.",
   "keywords": [
     "dsh",
