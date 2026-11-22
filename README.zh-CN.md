@@ -64,7 +64,9 @@ dsh plugin --profile web update mega-index-map
 - `library_project` - 一个工程内部的依赖图：`op=map` 报文件数、行数、边数、测试数与被依赖最多的文件；
   `op=affects file=<路径>` 列出所有间接导入该文件的文件与测试。语言规则是数据（js/ts、c/cpp、hmoca/hmyr、
   py、rs、go）。依赖不只是 import 语句：交给加载器的字符串路径也算，所以 `引入 "./x.hmoca"` 与
-  `loadUnit("./x.hmoca")` 都会成为边——两种写法都不会再从图上消失。
+  `loadUnit("./x.hmoca")` 都会成为边——两种写法都不会再从图上消失。`op=plan` 读 `design/PLAN.json`
+  （目标网络）并把每一条坏记录报出来；`templates/` 附四种起始骨架（minimal、capability、migration、
+  spec），每一种都由回归套件验收。
 
 
 ### 首次运行：先把历史淘一遍，再自称装好

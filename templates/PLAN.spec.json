@@ -1,0 +1,40 @@
+{
+  "title": "project-name: a specification layer with a reference implementation as its judge",
+  "goals": [
+    {
+      "id": "spec",
+      "title": "The specification itself: what the thing is, in documents that can be pointed at",
+      "scope": "release",
+      "status": "active",
+      "parent": null,
+      "after": [],
+      "source": "docs/SPEC.md",
+      "notes": "A spec-only repository plans its documents, not its code: each row touches the document that holds that part of the design, and the judge is the reader or the reference implementation that checks the document says what the code does. The notes record decisions, so the documents stay prose and the decisions stay findable.",
+      "touches": [
+        "docs/SPEC.md",
+        "docs/NOTES.md"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "reference",
+      "title": "The reference implementation that turns the specification into a checkable artifact",
+      "scope": "capability",
+      "status": "open",
+      "parent": "spec",
+      "after": [
+        "spec"
+      ],
+      "source": "docs/SPEC.md, section: reference",
+      "notes": "The spec and its reference are two goals because they are judged differently: the spec is judged by being read and agreed, the reference by cross-checking its output against an independent implementation. The after edge says the reference cannot honestly start before the spec it implements is settled.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "tests/crosscheck.mjs"
+      ]
+    }
+  ]
+}

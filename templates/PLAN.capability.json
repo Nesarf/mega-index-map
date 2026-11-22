@@ -1,0 +1,74 @@
+{
+  "title": "plugin-name: a tool surface with one release root and one goal per capability",
+  "goals": [
+    {
+      "id": "root",
+      "title": "One plugin, several tools, all local: the root every capability hangs off",
+      "scope": "release",
+      "status": "active",
+      "parent": null,
+      "after": [],
+      "source": "README.md",
+      "notes": "The root of the plan. Each capability below is a surface of the same product and names the files it touches and the suite that judges it. Capability goals split the work the way the tools split: one goal per tool, so a goal can be judged on its own.",
+      "touches": [
+        "src/index.js",
+        "package.json"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "record",
+      "title": "The write path: one door for every writer, change detection, and a decision the log keeps",
+      "scope": "capability",
+      "status": "done",
+      "parent": "root",
+      "after": [],
+      "source": "README.md, Tools: record",
+      "notes": "A done goal keeps its notes as the record of what was decided: here, that a change to an immutable object is refused until a person decides and the reason is kept in the append-only log.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "index",
+      "title": "The read side built on top of the write path: query, verify and reconcile",
+      "scope": "capability",
+      "status": "done",
+      "parent": "root",
+      "after": [
+        "record"
+      ],
+      "source": "README.md, Tools: index",
+      "notes": "The after edge says this capability rides on record, so the network reads in build order. Existence and identity are kept apart in its answers.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "formats",
+      "title": "A format surface that extends itself, judged against its own signature table",
+      "scope": "capability",
+      "status": "open",
+      "parent": "root",
+      "after": [
+        "record"
+      ],
+      "source": "README.md, Tools: formats",
+      "notes": "An open goal names what is missing, not a wish: the signature count is asserted against the docs so the table cannot drift, and the fixture corpus is the judge. When the corpus passes, this row flips to done and the notes become the record of the decision.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}

@@ -226,6 +226,35 @@ try {
   const healthy = await call("library_project", { op: "plan", root: cleanPlan });
   assert.deepEqual(healthy.plan.missing, [], "a plan whose every path exists reports nothing missing");
 
+  // The templates are judged the same way a real plan is: each one must land in a fresh repository
+  // and read back with an empty missing list, or the template itself is a broken record.
+  const templateHome = path.join(home, "template-fixture");
+  for (const file of [
+    "README.md", "package.json", "scripts/selfcheck.mjs", "src/index.js", "src/convert.js",
+    "docs/SPEC.md", "docs/NOTES.md", "tests/crosscheck.mjs",
+  ]) {
+    fs.mkdirSync(path.dirname(path.join(templateHome, file)), { recursive: true });
+    fs.writeFileSync(path.join(templateHome, file), "// fixture\n", "utf8");
+  }
+  fs.mkdirSync(path.join(templateHome, "design"), { recursive: true });
+  const templateDir = path.join(ROOT, "templates");
+  const templateFiles = fs.readdirSync(templateDir).filter((n) => n.startsWith("PLAN.") && n.endsWith(".json")).sort();
+  assert.deepEqual(templateFiles, ["PLAN.capability.json", "PLAN.migration.json", "PLAN.minimal.json", "PLAN.spec.json"],
+    "the four template kinds are all present");
+  assert.ok(fs.existsSync(path.join(templateDir, "README.md")), "the template dictionary ships with them");
+  for (const name of templateFiles) {
+    const raw = JSON.parse(fs.readFileSync(path.join(templateDir, name), "utf8"));
+    assert.ok(Array.isArray(raw.goals) && raw.goals.length > 0, `${name} has goals`);
+    for (const g of raw.goals) {
+      assert.ok(g.id && g.title && g.status, `${name}: every goal carries id, title and status`);
+    }
+    fs.copyFileSync(path.join(templateDir, name), path.join(templateHome, "design", "PLAN.json"));
+    const read = await call("library_project", { op: "plan", root: templateHome });
+    assert.equal(read.ok, true, `${name} is read back`);
+    assert.deepEqual(read.plan.missing, [], `${name} lands with an empty missing list`);
+    assert.equal(read.plan.total, raw.goals.length, `${name} keeps all its goals`);
+  }
+
   const mapped = await call("library_project", { op: "map", root: project });
   assert.equal(mapped.ok, true);
   assert.ok(mapped.files > 0, "op=map counts files");

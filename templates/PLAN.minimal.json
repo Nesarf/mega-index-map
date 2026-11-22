@@ -1,0 +1,21 @@
+{
+  "title": "project-name: one line on what this repository is",
+  "goals": [
+    {
+      "id": "root",
+      "title": "What the whole repository is for, in one sentence",
+      "scope": "project",
+      "status": "active",
+      "parent": null,
+      "after": [],
+      "source": "README.md",
+      "notes": "The root of the plan. Every goal below names the files it touches and the suite that judges it; a goal that cannot say either is not ready to be a goal. The plan reader reports a touched path that is not there, a judge that is not there, a parent or an after edge that points nowhere - a healthy plan reports an empty missing list.",
+      "touches": [
+        "README.md"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}

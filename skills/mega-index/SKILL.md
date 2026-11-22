@@ -30,7 +30,8 @@ prepends this same advice to each session (wording replaceable at `$DSH_HOME/meg
 - `library_project` - dependency map of a source tree: `op=map` reports files, lines, edges, tests and the
   most depended-on files; `op=affects file=<path>` names every file and test that transitively imports the
   given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go), and string-path loaders such as
-  `loadUnit` count as dependencies too.
+  `loadUnit` count as dependencies too. `op=plan` reads `design/PLAN.json` (the goal network) and reports
+  every broken record; `templates/` ships four starting skeletons (minimal, capability, migration, spec).
 
   **During development, do not run the whole suite after every change.** Ask `op=affects` for the file you
   touched, then run only the tests it names: the map exists so a change costs one targeted run instead of a full

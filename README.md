@@ -80,7 +80,9 @@ dsh plugin --profile web update mega-index-map
   given one. Language rules are data (js/ts, c/cpp, hmoca/hmyr, py, rs, go). A dependency is not only an
   `import` statement: a string path handed to a loader counts too, so hmoca's own import statement and a
   call like `loadUnit("./x.hmoca")` both become edges, and a source pulled in by either spelling stops
-  disappearing from the map.
+  disappearing from the map. `op=plan` reads `design/PLAN.json` (the goal network) and reports every broken
+  record; `templates/` ships four starting skeletons (minimal, capability, migration, spec), each judged
+  by the regression suite.
 
 ### First run: mine the history before claiming to be installed
 

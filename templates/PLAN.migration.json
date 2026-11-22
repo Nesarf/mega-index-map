@@ -1,0 +1,73 @@
+{
+  "title": "project-name: a stage-by-stage migration, one settled plan and one goal per stage",
+  "goals": [
+    {
+      "id": "settle",
+      "title": "The direction is settled: the language split, the target shape, and the migration order",
+      "scope": "release",
+      "status": "done",
+      "parent": null,
+      "after": [],
+      "source": "docs/SPEC.md",
+      "notes": "A migration plan starts with a settled decision row, so the later stages do not re-argue the direction. The notes keep the decision and its reasons; later rows cite it instead of restating it.",
+      "touches": [
+        "docs/SPEC.md"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "kernel",
+      "title": "The first stage: the core that everything else rides on, judged byte-for-byte against the original",
+      "scope": "capability",
+      "status": "active",
+      "parent": "settle",
+      "after": [],
+      "source": "docs/SPEC.md, section: migration order",
+      "notes": "Stage one of a migration is the kernel the later stages depend on, and its judge is the strongest available: the new implementation must agree with the old one on the same corpus. This row stays active until every member of the family is cross-checked.",
+      "touches": [
+        "src/convert.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "toolface",
+      "title": "The second stage: the surface that routes each operation to the new core or back to the old",
+      "scope": "capability",
+      "status": "open",
+      "parent": "settle",
+      "after": [
+        "kernel"
+      ],
+      "source": "docs/SPEC.md, section: tool surface",
+      "notes": "The after edge keeps the order honest: the surface cannot route to a kernel that is not cross-checked yet. Its own judge will drive one operation through both routes and compare the answers.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    },
+    {
+      "id": "shell",
+      "title": "The last stage: the thin shell that replaces the old host integration",
+      "scope": "capability",
+      "status": "open",
+      "parent": "settle",
+      "after": [
+        "toolface"
+      ],
+      "source": "docs/SPEC.md, section: host integration",
+      "notes": "The shell is last in the chain on purpose: it flips the integration over only after the routed surface works. A stage that is not ready stays open and says what is missing.",
+      "touches": [
+        "src/index.js"
+      ],
+      "verifiedBy": [
+        "scripts/selfcheck.mjs"
+      ]
+    }
+  ]
+}
